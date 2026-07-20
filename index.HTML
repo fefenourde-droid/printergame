@@ -1,0 +1,3040 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeskManager Pro : Franchise & Automation Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #060913;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        /* Custom scrollbars for companion panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.25);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(56, 189, 248, 0.5);
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+        }
+        @keyframes pulse-gold {
+            0%, 100% { border-color: rgba(234, 179, 8, 0.3); box-shadow: 0 0 5px rgba(234, 179, 8, 0.1); }
+            50% { border-color: rgba(234, 179, 8, 0.8); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+        }
+        .prestige-active {
+            animation: pulse-gold 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 flex flex-col justify-between">
+
+    <div class="fixed inset-0 z-0 bg-gradient-to-b from-[#110e1a] via-[#090710] to-[#030206] opacity-95"></div>
+    <div class="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
+
+    <!-- STARTUP LOADING MODAL -->
+    <div id="saveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-filter backdrop-blur-md">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full border border-sky-500/30 text-center flex flex-col gap-5">
+            <div class="text-5xl animate-bounce">💾</div>
+            <h3 class="text-2xl font-black text-white tracking-wide uppercase">DeskManager & Pro Bureau</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Le système requiert le chargement de votre fichier de progression nommé <span class="text-sky-400 font-mono font-bold">sauvegarde réaliste printer.json</span> pour restaurer votre bureau et vos stagiaires.
+            </p>
+            <div class="bg-black/40 p-4 rounded-xl border border-white/5 text-[11px] text-left text-slate-400 flex flex-col gap-2">
+                <span class="text-[9px] font-bold text-yellow-500 uppercase tracking-wider block">⚠️ PROTOCOLE DE SAUVEGARDE</span>
+                Pour sauvegarder votre progression d'un mois d'activité, téléchargez votre fichier régulièrement. Si vous débutez, générez un nouveau fichier de départ.
+            </div>
+            <div id="modalErrorText" class="hidden text-xs text-rose-400 font-semibold bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl"></div>
+            <div class="flex flex-col gap-2">
+                <label class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all duration-300 cursor-pointer text-xs flex items-center justify-center gap-2">
+                    <span>📂</span>
+                    <span>CHARGER MON FICHIER (.JSON)</span>
+                    <input type="file" id="importFileInputModal" class="hidden" accept=".json" onchange="handleFileImport(event, true)">
+                </label>
+                <button onclick="createNewSaveFile()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 px-4 rounded-xl border border-white/10 transition-all text-xs">
+                    🆕 Nouvelle Partie (Créer un fichier de sauvegarde)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN INTERFACE HEADER -->
+    <div class="z-10 w-full max-w-7xl mx-auto flex flex-col gap-4">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-white/10 pb-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                    <span class="w-3.5 h-3.5 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.5)]"></span>
+                    DeskManager & Office Simulator <span class="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 uppercase tracking-widest font-black">PRO</span>
+                </h1>
+                <p class="text-xs text-slate-400 mt-1">Automatisez votre bureau, gérez le quartier des stagiaires et devenez un empire de l'impression.</p>
+            </div>
+            
+            <div class="mt-3 md:mt-0 flex gap-3 items-center flex-wrap">
+                <!-- Prestige Level Badge Indicator -->
+                <div id="prestigeBadge" class="hidden bg-gradient-to-r from-amber-500/10 to-yellow-600/10 px-4 py-2.5 rounded-2xl border border-amber-500/30 flex items-center gap-2 shadow-lg text-yellow-300 font-bold text-xs">
+                    <span>🏆</span>
+                    <span>PRESTIGE : <span id="prestigeLvlTxt">0</span> (x<span id="prestigeMultTxt">1.0</span>)</span>
+                </div>
+
+                <button onclick="toggleFullscreen()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-white border border-white/10 px-4 py-2.5 rounded-2xl flex items-center gap-2 font-semibold text-xs transition-all shadow-lg">
+                    <span id="fullscreenIcon">🖥️</span>
+                    <span id="fullscreenText">PLEIN ÉCRAN (F11)</span>
+                </button>
+                
+                <div class="bg-gradient-to-r from-emerald-500/15 to-teal-600/15 px-5 py-2.5 rounded-2xl border border-emerald-500/30 flex items-center gap-3 shadow-lg">
+                    <span class="text-xl md:text-2xl">💰</span>
+                    <div>
+                        <span class="text-[9px] font-mono text-emerald-400 uppercase tracking-widest block font-bold">SOLDE DU BUREAU</span>
+                        <span id="moneyCounter" class="text-lg md:text-2xl font-black text-emerald-300 font-mono tracking-tight">$0.00</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- WORKSPACE & TABLET CONTAINER -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            
+            <!-- LEFT COLUMN: Physical Desk Canvas Workspace -->
+            <div class="lg:col-span-7 flex flex-col bg-black/40 rounded-3xl p-4 border border-white/5 shadow-2xl relative overflow-hidden">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <span id="workspaceTitle" class="text-[10px] font-mono text-slate-400 tracking-widest uppercase">ESPACE BUREAU INTERACTIF</span>
+                    
+                    <!-- NEW VIEW SWITCH BUTTONS -->
+                    <div class="flex gap-1 bg-slate-900/80 p-0.5 rounded-xl border border-white/5">
+                        <button id="btnViewDesk" onclick="switchView('main_desk')" class="px-3 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all bg-indigo-600 text-white">
+                            🖨️ Bureau
+                        </button>
+                        <button id="btnViewQuartier" onclick="switchView('quartier')" class="px-3 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all text-slate-400 hover:text-white">
+                            🏙️ Quartier des Imprimantes
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Main physics-rendering canvas -->
+                <div class="relative w-full aspect-[4/3] max-h-[500px] bg-[#160f0a] rounded-2xl border border-amber-950/40 overflow-hidden shadow-inner">
+                    <canvas id="deskCanvas" class="w-full h-full block touch-none cursor-grab active:cursor-grabbing"></canvas>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Companion Tablet for Upgrades & Stats -->
+            <div class="lg:col-span-5 glass-panel rounded-3xl p-5 flex flex-col justify-between gap-4 relative">
+                <div class="absolute -inset-1 rounded-[28px] border border-white/5 pointer-events-none"></div>
+
+                <div class="flex flex-col gap-4 h-full justify-between">
+                    <!-- Tablet Bezel Top -->
+                    <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-xl">📱</span>
+                            <div>
+                                <h2 class="font-bold text-white text-sm tracking-wide">CONSOLE COMPAGNON</h2>
+                                <p class="text-[10px] text-sky-400">DeskOS SmartLink v12.1</p>
+                            </div>
+                        </div>
+                        <span id="printerStateBadge" class="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 uppercase tracking-widest">
+                            Prêt
+                        </span>
+                    </div>
+
+                    <!-- TAB SELECTORS -->
+                    <div class="flex border-b border-white/5 bg-black/40 p-1 rounded-xl gap-1 overflow-x-auto">
+                        <button onclick="switchTab('orders')" id="tab-orders" class="flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-white/5 rounded-lg border border-white/5 transition-all whitespace-nowrap">
+                            📋 Contrats
+                        </button>
+                        <button onclick="switchTab('upgrades')" id="tab-upgrades" class="flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all whitespace-nowrap">
+                            ⚡ Mises à niveau
+                        </button>
+                        <button onclick="switchTab('automation')" id="tab-automation" class="flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all whitespace-nowrap">
+                            🤖 Assistants
+                        </button>
+                        <button onclick="switchTab('prestige')" id="tab-prestige" class="flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all whitespace-nowrap">
+                            🏆 Prestige & Succès
+                        </button>
+                        <button onclick="switchTab('save')" id="tab-save" class="flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all whitespace-nowrap">
+                            💾 Fichier
+                        </button>
+                    </div>
+
+                    <!-- TAB CONTENT 1: Orders System panel -->
+                    <div id="ordersTab" class="flex flex-col gap-3 flex-1 justify-center">
+                        <div class="bg-slate-950/60 rounded-2xl p-4 border border-white/5 flex flex-col gap-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] font-bold text-slate-400 tracking-wider">REQUÊTE CLIENT ACTIF</span>
+                                <span id="badgeDemandColor" class="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-bold">MONOCHROME</span>
+                            </div>
+                            
+                            <!-- Client Avatar Card -->
+                            <div class="flex gap-3.5 items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                                <div class="w-12 h-12 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-2xl shadow-inner" id="clientAvatar">
+                                    👴
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-white text-sm" id="clientName">M. Robert</h3>
+                                    <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed font-medium" id="clientDemandText">"Besoin d'un contrat de bail standard."</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[9px] text-slate-500 block uppercase font-bold">RÉCOMPENSE</span>
+                                    <span class="text-base font-black text-emerald-400 font-mono" id="orderReward">$20.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Document parameters -->
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                                <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                                    <span class="text-[9px] text-slate-500 block">TYPE DE DOCUMENT</span>
+                                    <span class="font-semibold text-slate-200 mt-0.5 block" id="reqDocType">Contrat</span>
+                                </div>
+                                <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                                    <span class="text-[9px] text-slate-500 block">EXIGENCES SUPPLÉMENTAIRES</span>
+                                    <span class="font-semibold text-sky-400 mt-0.5 block" id="reqDocExtras">Aucune</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Controls -->
+                        <div class="flex flex-col gap-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button id="triggerPrintBtn" onclick="launchActiveJob()" class="w-full relative group overflow-hidden bg-gradient-to-r from-indigo-500 to-sky-600 hover:from-indigo-400 hover:to-sky-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 text-xs">
+                                    <span>🖨️</span>
+                                    <span class="tracking-wider uppercase">Lancer l'impression</span>
+                                </button>
+                                
+                                <button onclick="changeActiveOrder()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-xl border border-white/10 transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
+                                    <span>🔄</span>
+                                    <span class="uppercase">Passer le client</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB CONTENT 2: Upgrades System panel -->
+                    <div id="upgradesTab" class="hidden flex-col gap-3 flex-1 justify-center">
+                        <div class="bg-slate-950/60 rounded-2xl p-4 border border-white/5 flex flex-col gap-3 max-h-[310px] overflow-y-auto">
+                            <div class="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Évolutions du Matériel & Bureau</div>
+                            
+                            <!-- Color Unlock Segment (Step by step) -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">Extension de Couleurs</span>
+                                    <p id="descUpgradeColor" class="text-[10px] text-slate-400">Canal Noir débloqué d'office.</p>
+                                </div>
+                                <button id="btnUpgradeColor" onclick="buyUpgrade('color')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Améliorer
+                                </button>
+                            </div>
+
+                            <!-- Speed Upgrade Row (Deep, 50 Levels) -->
+                            <div class="flex flex-col bg-white/5 p-2.5 rounded-xl border border-white/5 gap-2">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="flex-1">
+                                        <span class="text-[9px] font-bold text-sky-400 uppercase tracking-wider block">Moteur d'Impression (50 niveaux)</span>
+                                        <p id="descUpgradeSpeed" class="text-[10px] text-slate-400">Vitesse : Ultra Lente (Lvl 1/50)</p>
+                                    </div>
+                                    <button id="btnUpgradeSpeed" onclick="buyUpgrade('speed')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                        Améliorer
+                                    </button>
+                                </div>
+                                <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                                    <div id="bar-spd-fill" class="bg-sky-500 h-full w-[2%] transition-all"></div>
+                                </div>
+                            </div>
+
+                            <!-- Quality Upgrade Row (Max 5) -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block">Tête d'impression Haute Précision</span>
+                                    <p id="descUpgradeQuality" class="text-[10px] text-slate-400">Résolution : Standard (Bénéfice : x1.00)</p>
+                                </div>
+                                <button id="btnUpgradeQuality" onclick="buyUpgrade('quality')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Améliorer
+                                </button>
+                            </div>
+
+                            <!-- Auto-feeder limit capacity upgrade -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">Volume du Chargeur Papier</span>
+                                    <p id="descUpgradePaperCap" class="text-[10px] text-slate-400">Max : 8 feuilles.</p>
+                                </div>
+                                <button id="btnUpgradePaperCap" onclick="buyUpgrade('paper_cap')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Améliorer
+                                </button>
+                            </div>
+
+                            <!-- Ink Tank Capacity upgrade -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-teal-400 uppercase tracking-wider block">Capacité des Réservoirs</span>
+                                    <p id="descUpgradeInkCap" class="text-[10px] text-slate-400">Capacité : 100% maximum.</p>
+                                </div>
+                                <button id="btnUpgradeInkCap" onclick="buyUpgrade('ink_cap')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Améliorer
+                                </button>
+                            </div>
+
+                            <!-- Negotiator Tip Upgrade -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-orange-400 uppercase tracking-wider block">Charisme & Négociation</span>
+                                    <p id="descUpgradeCharisma" class="text-[10px] text-slate-400">Pourboires : +0%.</p>
+                                </div>
+                                <button id="btnUpgradeCharisma" onclick="buyUpgrade('charisma')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Améliorer
+                                </button>
+                            </div>
+
+                            <!-- Purchasable Hardware Equipment (Plastifieuse & Agrafeuse) -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-fuchsia-400 uppercase tracking-wider block">Acquérir Plastifieuse (Laminator)</span>
+                                    <p id="descEquipLaminator" class="text-[10px] text-slate-400">Permet les contrats de plastification (+50% gains).</p>
+                                </div>
+                                <button id="btnEquipLaminator" onclick="buyEquipment('laminator')" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Acheter ($750)
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-rose-400 uppercase tracking-wider block">Acquérir Agrafeuse Industrielle</span>
+                                    <p id="descEquipStapler" class="text-[10px] text-slate-400">Permet d'agrafer les documents complexes (+30% gains).</p>
+                                </div>
+                                <button id="btnEquipStapler" onclick="buyEquipment('stapler')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Acheter ($400)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB CONTENT 3: Hired Automation Assistants panel -->
+                    <div id="automationTab" class="hidden flex-col gap-3 flex-1 justify-center">
+                        <div class="bg-slate-950/60 rounded-2xl p-4 border border-white/5 flex flex-col gap-3 max-h-[310px] overflow-y-auto">
+                            <div class="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Automatisation (Hired Helpers)</div>
+                            
+                            <!-- INFO BLOCK ABOUT GRATUITOUS INTERNS -->
+                            <div class="bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20 flex flex-col gap-1 text-[10.5px] leading-relaxed">
+                                <span class="text-indigo-400 font-bold flex items-center gap-1">🏙️ LE QUARTIER DES IMPRIMANTES</span>
+                                <span>Vos stagiaires ont chacun leur bureau dédié dans le quartier ! Ils travaillent <strong>gratuitement</strong> et paient eux-mêmes leurs fournitures. Activez-les depuis l'écran du quartier pour encaisser leurs gains !</span>
+                                <button onclick="switchView('quartier')" class="mt-2 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 rounded-lg text-[9px] uppercase tracking-wider">
+                                    Visiter le Quartier des Stagiaires
+                                </button>
+                            </div>
+
+                            <!-- Express courier assistant -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block">🚴 Livreur Coursier Express</span>
+                                    <p id="descAutoCourier" class="text-[10px] text-slate-400">Récupère et livre les documents terminés du bureau toutes les 15s.</p>
+                                </div>
+                                <button id="btnAutoCourier" onclick="buyAutomation('courier')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Acheter ($2,500)
+                                </button>
+                            </div>
+
+                            <!-- Auto refiller system -->
+                            <div class="flex items-center justify-between bg-white/5 p-2.5 rounded-xl border border-white/5 gap-3">
+                                <div class="flex-1">
+                                    <span class="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">⚙️ Pompe de Recharge Automatique</span>
+                                    <p id="descAutoRefill" class="text-[10px] text-slate-400">Recharge instantanément l'encre lorsqu'elle est vide au bureau.</p>
+                                </div>
+                                <button id="btnAutoRefill" onclick="buyAutomation('refiller')" class="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap">
+                                    Acheter ($3,500)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB CONTENT 4: Career Milestones & Prestige Resets panel -->
+                    <div id="prestigeTab" class="hidden flex-col gap-3 flex-1 justify-center">
+                        <div class="bg-slate-950/60 rounded-2xl p-4 border border-white/5 flex flex-col gap-3 max-h-[310px] overflow-y-auto">
+                            
+                            <!-- Prestige system zone -->
+                            <div class="bg-gradient-to-r from-amber-500/10 to-yellow-600/10 p-3 rounded-xl border border-yellow-500/20 flex flex-col gap-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-bold text-yellow-400 uppercase tracking-wider block">👑 Franchise de Bureau</span>
+                                    <span id="badgePrestigeCount" class="text-[9px] bg-yellow-500/20 text-yellow-300 font-mono font-bold px-1.5 py-0.5 rounded">Niveau 0</span>
+                                </div>
+                                <p class="text-[10px] text-slate-300 leading-relaxed">
+                                    Franchisez votre bureau ! Réinitialisez votre solde, vos améliorations et vos stagiaires en échange d'une renommée mondiale permanente qui booste vos bénéfices futurs de <strong>+50% par niveau</strong>.
+                                </p>
+                                <button id="btnTriggerPrestige" onclick="triggerPrestigeReset()" class="w-full bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-black py-2 rounded-lg text-[10px] uppercase shadow transition-all active:scale-95">
+                                    FRANCHISER POUR MULTIPLICATEUR (Requis : $1,000)
+                                </button>
+                            </div>
+
+                            <!-- Career Achievements stats progression -->
+                            <div class="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Trophées & Statistiques</div>
+                            <div class="grid grid-cols-2 gap-2 text-[9px] font-mono text-slate-400">
+                                <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                                    <span class="text-slate-500">PAGES IMPRIMÉES</span>
+                                    <span id="statPages" class="font-bold text-white block mt-0.5">0</span>
+                                </div>
+                                <div class="bg-black/30 p-2 rounded-lg border border-white/5">
+                                    <span class="text-slate-500">GAIN TOTAL</span>
+                                    <span id="statMoney" class="font-bold text-white block mt-0.5">$0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Achievement list displays -->
+                            <div class="flex flex-col gap-1.5" id="achievementsContainer">
+                                <!-- Dynamically loaded from JS -->
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- TAB CONTENT 5: Save & Management panel -->
+                    <div id="saveTab" class="hidden flex-col gap-3 flex-1 justify-center">
+                        <div class="bg-slate-950/60 rounded-2xl p-4 border border-white/5 flex flex-col gap-3">
+                            <div class="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Gestionnaire de Sauvegarde</div>
+                            <p class="text-[11px] text-slate-300 leading-relaxed">
+                                Téléchargez votre bureau sous forme de fichier JSON pour ne jamais perdre vos fonds, vos stagiaires actifs, votre prestige et vos paliers d'amélioration.
+                            </p>
+                            <div class="grid grid-cols-1 gap-2">
+                                <button onclick="exportSaveFile()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
+                                    <span>📥</span>
+                                    <span class="uppercase">Télécharger la sauvegarde</span>
+                                </button>
+                                <label class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 px-4 rounded-xl border border-white/10 transition-all cursor-pointer text-xs flex items-center justify-center gap-2 text-center">
+                                    <span>📂</span>
+                                    <span class="uppercase">Importer un autre fichier</span>
+                                    <input type="file" id="importFileInputTab" class="hidden" accept=".json" onchange="handleFileImport(event, false)">
+                                </label>
+                            </div>
+                            <div class="text-[9px] text-slate-500 text-center font-mono">
+                                Fichier requis : sauvegarde réaliste printer.json
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Hardware log terminal -->
+                    <div class="bg-slate-950/80 p-2.5 rounded-xl border border-white/5 font-mono text-[9px] text-slate-400 flex flex-col gap-1 min-h-[55px] max-h-[75px] overflow-y-auto">
+                        <div class="flex justify-between border-b border-white/5 pb-1 text-[8px] text-slate-500 font-bold">
+                            <span>LOGGER TECHNIQUE PRO</span>
+                            <span class="text-indigo-500 animate-pulse">CONNECTÉ</span>
+                        </div>
+                        <div id="log-container" class="space-y-0.5">
+                            <p class="text-slate-500">> Système initialisé pour une session longue.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="text-center text-[10px] text-slate-600 mt-1">
+            Simulateur Logistique d'Impression Industrielle • Gestion des Stagiaires du Quartier • DeskOS v12.1
+        </footer>
+    </div>
+
+    <!-- AUDIO & LOGIC INJECTIONS -->
+    <script>
+        const canvas = document.getElementById('deskCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function initCanvasSize() {
+            canvas.width = 750;
+            canvas.height = 550;
+        }
+        initCanvasSize();
+
+        // 30 custom customer templates with adaptive ink costs and custom documents
+        const customerTemplates = [
+            {
+                avatar: "👴", name: "M. Robert", demand: "Besoin d'un contrat de bail standard.",
+                docName: "Contrat de Location", docType: "lease", reward: 20.00,
+                inkCosts: { C: 0, M: 0, Y: 0, K: 10 }
+            },
+            {
+                avatar: "👩‍🎓", name: "Lucie", demand: "Mon mémoire universitaire doit être imprimé.",
+                docName: "Mémoire", docType: "thesis", reward: 28.00,
+                inkCosts: { C: 0, M: 0, Y: 0, K: 12 }
+            },
+            {
+                avatar: "💼", name: "Fisc-Express", demand: "Impression urgente de l'avis d'imposition.",
+                docName: "Avis Fiscal", docType: "invoice", reward: 35.00,
+                inkCosts: { C: 0, M: 0, Y: 0, K: 15 }
+            },
+            {
+                avatar: "✍️", name: "Hugo", demand: "Mon manuscrit, enfin prêt pour mon éditeur !",
+                docName: "Manuscrit", docType: "manuscript", reward: 40.00,
+                inkCosts: { C: 0, M: 0, Y: 0, K: 18 }
+            },
+            {
+                avatar: "📐", name: "Mme Denise", demand: "Besoin d'un plan technique bleu pour le chantier.",
+                docName: "Plan Structure", docType: "cyan_blueprint", reward: 60.00,
+                inkCosts: { C: 15, M: 0, Y: 0, K: 8 }
+            },
+            {
+                avatar: "🌸", name: "Chloé (Fleuriste)", demand: "Des invitations de mariage élégantes.",
+                docName: "Faire-part", docType: "wedding_invite", reward: 75.00,
+                inkCosts: { C: 0, M: 18, Y: 0, K: 5 }
+            },
+            {
+                avatar: "🚧", name: "Jean", demand: "Un panneau d'avertissement jaune pour la sécurité.",
+                docName: "Panneau Jaune", docType: "yellow_sign", reward: 85.00,
+                inkCosts: { C: 0, M: 0, Y: 20, K: 12 }
+            },
+            {
+                avatar: "🎵", name: "Lucas", demand: "Flyers pour ma soirée de ce soir, en violet électrique !",
+                docName: "Flyer Techno", docType: "party_flyer", reward: 110.00,
+                inkCosts: { C: 12, M: 15, Y: 0, K: 8 }
+            },
+            {
+                avatar: "🐱", name: "Sophie", demand: "Une impression photo haute fidélité de mon chat.",
+                docName: "Photo de Chat", docType: "cat", reward: 140.00,
+                inkCosts: { C: 10, M: 12, Y: 15, K: 5 }
+            },
+            {
+                avatar: "🍕", name: "Luigi", demand: "La carte des pizzas à emporter pour mon restaurant.",
+                docName: "Menu Pizzeria", docType: "yellow_sign", reward: 95.00,
+                inkCosts: { C: 0, M: 0, Y: 22, K: 10 }
+            },
+            {
+                avatar: "🦷", name: "Dr. Sacha", demand: "Un guide d'hygiène dentaire pour mon cabinet.",
+                docName: "Guide Dentaire", docType: "cyan_blueprint", reward: 65.00,
+                inkCosts: { C: 14, M: 0, Y: 0, K: 6 }
+            },
+            {
+                avatar: "🚗", name: "Marc", demand: "Une affiche de vente pour ma voiture d'occasion.",
+                docName: "Fiche Auto", docType: "yellow_sign", reward: 90.00,
+                inkCosts: { C: 0, M: 0, Y: 18, K: 11 }
+            },
+            {
+                avatar: "🦖", name: "Théo", demand: "Je veux un grand dessin de T-Rex coloré !",
+                docName: "Poster Dinosaure", docType: "cat", reward: 150.00,
+                inkCosts: { C: 12, M: 10, Y: 14, K: 6 }
+            },
+            {
+                avatar: "🕵️‍♂️", name: "Agent Smith", demand: "Imprimez ceci. Ne posez aucune question.",
+                docName: "Dossier Classifié", docType: "manuscript", reward: 55.00,
+                inkCosts: { C: 0, M: 0, Y: 0, K: 22 }
+            },
+            {
+                avatar: "🥐", name: "Boulangerie Paul", demand: "Des étiquettes de prix pour nos viennoiseries.",
+                docName: "Étiquette Pain", docType: "yellow_sign", reward: 80.00,
+                inkCosts: { C: 0, M: 0, Y: 15, K: 5 }
+            },
+            {
+                avatar: "🥦", name: "Bio-Shop", demand: "Flyers de promotion pour nos légumes bios.",
+                docName: "Flyer Éco", docType: "yellow_sign", reward: 88.00,
+                inkCosts: { C: 0, M: 0, Y: 19, K: 7 }
+            },
+            {
+                avatar: "🎸", name: "Jimi", demand: "Affiche rétro pour le concert de mon groupe de rock.",
+                docName: "Affiche Concert", docType: "party_flyer", reward: 125.00,
+                inkCosts: { C: 10, M: 22, Y: 0, K: 10 }
+            },
+            {
+                avatar: "✈️", name: "Agence Horizon", demand: "La carte des vols de l'hémisphère nord.",
+                docName: "Carte du Ciel", docType: "cyan_blueprint", reward: 70.00,
+                inkCosts: { C: 20, M: 0, Y: 0, K: 5 }
+            },
+            {
+                avatar: "🚒", name: "Capitaine Fred", demand: "Consignes de sécurité en cas d'incendie.",
+                docName: "Alerte Sécurité", docType: "yellow_sign", reward: 100.00,
+                inkCosts: { C: 0, M: 0, Y: 25, K: 15 }
+            },
+            {
+                avatar: "👗", name: "Alice", demand: "Un lookbook pour la nouvelle collection d'été.",
+                docName: "Lookbook Mode", docType: "wedding_invite", reward: 82.00,
+                inkCosts: { C: 0, M: 20, Y: 0, K: 4 }
+            },
+            {
+                avatar: "🧙‍♂️", name: "Merlin", demand: "Un parchemin de sortilèges anciens.",
+                docName: "Formule Magique", docType: "yellow_sign", reward: 105.00,
+                inkCosts: { C: 0, M: 0, Y: 24, K: 12 }
+            },
+            {
+                avatar: "⚽", name: "Coach Pierre", demand: "Le plan tactique pour le match de dimanche.",
+                docName: "Tactique Football", docType: "cyan_blueprint", reward: 68.00,
+                inkCosts: { C: 16, M: 0, Y: 0, K: 7 }
+            },
+            {
+                avatar: "☕", name: "Café Central", demand: "Cartes de fidélité pour nos clients réguliers.",
+                docName: "Carte Fidélité", docType: "wedding_invite", reward: 78.00,
+                inkCosts: { C: 0, M: 15, Y: 0, K: 6 }
+            },
+            {
+                avatar: "🌌", name: "Neil", demand: "Photo de la nébuleuse d'Orion prise par satellite.",
+                docName: "Photo Espace", docType: "cat", reward: 165.00,
+                inkCosts: { C: 15, M: 15, Y: 10, K: 8 }
+            },
+            {
+                avatar: "🏦", name: "Bank Corp", demand: "Rapport d'activité trimestriel pour les actionnaires.",
+                docName: "Rapport Annuel", docType: "invoice", reward: 50.00,
+                inkCosts: { C: 0, M: 0, Y: 0, K: 20 }
+            },
+            {
+                avatar: "🐝", name: "L'Apiculteur", demand: "Des étiquettes colorées pour mes pots de miel.",
+                docName: "Étiquette Miel", docType: "yellow_sign", reward: 115.00,
+                inkCosts: { C: 0, M: 0, Y: 28, K: 6 }
+            },
+            {
+                avatar: "🎮", name: "Cyber Club", demand: "Flyers pour notre tournoi e-sport local.",
+                docName: "Flyer Gaming", docType: "party_flyer", reward: 130.00,
+                inkCosts: { C: 15, M: 15, Y: 0, K: 10 }
+            },
+            {
+                avatar: "🩺", name: "Clinique Santé", demand: "Feuille d'admission standard pour les urgences.",
+                docName: "Fiche Patient", docType: "cyan_blueprint", reward: 62.00,
+                inkCosts: { C: 10, M: 0, Y: 0, K: 8 }
+            },
+            {
+                avatar: "🍿", name: "Popcorn Palace", demand: "Affiches publicitaires pour notre prochain film d'action.",
+                docName: "Affiche Cinéma", docType: "party_flyer", reward: 120.00,
+                inkCosts: { C: 10, M: 18, Y: 0, K: 12 }
+            },
+            {
+                avatar: "🎨", name: "Picasso Jr", demand: "Une impression d'art moderne abstrait et géométrique.",
+                docName: "Art Moderne", docType: "cat", reward: 180.00,
+                inkCosts: { C: 18, M: 18, Y: 18, K: 5 }
+            }
+        ];
+
+        // VIEW & STATE DECLARATIONS
+        let currentView = 'main_desk'; // 'main_desk' or 'quartier'
+        let money = 0.00;
+        let paperStock = 0;
+        let isFirstCartridgeFree = true;
+        let isInkCompartmentOpen = false;
+        let prestigeLevel = 0;
+        
+        let ink = { C: 0, M: 0, Y: 0, K: 0 };
+
+        // Extensive progression config
+        let upgrades = {
+            colorsUnlocked: { C: false, M: false, Y: false, K: true },
+            speedLevel: 1,      // Max 50 !
+            qualityLevel: 1,    // Max 5 !
+            paperCapLevel: 1,   // Max 10 ! (Determines max paper feeder stock)
+            inkCapLevel: 1,     // Max 10 ! (Determines max ink reservoir capacity)
+            charismaLevel: 0    // Max 30 !
+        };
+
+        let equipment = {
+            laminator: false,
+            stapler: false
+        };
+
+        let automation = {
+            courier: false,
+            refiller: false
+        };
+
+        // NEW: Intern Desks State inside the "Quartier des Imprimantes"
+        // They are completely free to recruit (they pay with their own money/work for school credit)
+        let interns = [
+            { id: "thomas", name: "Thomas", avatar: "👶", unlocked: false, progress: 0, speed: 0.2, reward: 1.50, state: "Prêt", color: "#6366f1" },
+            { id: "lucie", name: "Lucie", avatar: "🧑‍🎓", unlocked: false, progress: 0, speed: 0.15, reward: 2.80, state: "Prêt", color: "#ec4899" },
+            { id: "yasmine", name: "Yasmine", avatar: "👩‍💻", unlocked: false, progress: 0, speed: 0.1, reward: 4.50, state: "Prêt", color: "#10b981" },
+            { id: "maxime", name: "Maxime", avatar: "👨‍💻", unlocked: false, progress: 0, speed: 0.07, reward: 6.00, state: "Prêt", color: "#f59e0b" }
+        ];
+
+        let stats = {
+            pagesPrinted: 0,
+            totalEarnings: 0.0,
+            timesRefilled: 0,
+            totalLaminated: 0,
+            totalStapled: 0
+        };
+
+        // Achievements array
+        const achievementsList = [
+            { id: "print_5", title: "Apprenti Typographe", desc: "Imprimer 5 pages", required: { pages: 5 }, unlocked: false, rewardDesc: "+5% gains passifs" },
+            { id: "print_50", title: "Imprimeur Agile", desc: "Imprimer 50 pages", required: { pages: 50 }, unlocked: false, rewardDesc: "+10% gains passifs" },
+            { id: "print_200", title: "Gutenberg Pro", desc: "Imprimer 200 pages", required: { pages: 200 }, unlocked: false, rewardDesc: "Vitesse d'impression +10%" },
+            { id: "earn_100", title: "Entrepreneur", desc: "Gagner $100 au total", required: { money: 100 }, unlocked: false, rewardDesc: "+10% gains passifs" },
+            { id: "earn_1000", title: "Cacique du Bureau", desc: "Gagner $1,000 au total", required: { money: 1000 }, unlocked: false, rewardDesc: "Encre rechargée 5% moins cher" },
+            { id: "refill_20", title: "Maintenance Man", desc: "Recharger l'encre 20 fois", required: { refilled: 20 }, unlocked: false, rewardDesc: "+5% gains passifs" }
+        ];
+
+        // Speed names (up to 50 levels)
+        function getSpeedName(lvl) {
+            if (lvl === 1) return "Ultra Lente";
+            if (lvl <= 5) return "Tortue Mécanique";
+            if (lvl <= 10) return "Courroie Bureau Standard";
+            if (lvl <= 20) return "Jet d'Encre Productif";
+            if (lvl <= 30) return "Laser Cyclique Rapide";
+            if (lvl <= 40) return "Tachyonique Magnétique";
+            return "Imprimante Quantique Instantanée";
+        }
+
+        // PHYSICAL CONTROL VARIABLES
+        let isPrinting = false;
+        let printProgress = 0;
+        let carriageX = 350;
+        let carriageDir = 1;
+        let printedDocumentReady = false;
+        let activeOrder = null;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Web Audio Synthesis for realistic machinery sounds
+        function playSound(type) {
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            const filterNode = audioCtx.createBiquadFilter();
+
+            osc.connect(filterNode);
+            filterNode.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'feed') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(310, audioCtx.currentTime + 0.45);
+                filterNode.type = 'lowpass';
+                filterNode.frequency.value = 750;
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime + 0.1);
+                gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.45);
+            } 
+            else if (type === 'carriage') {
+                let pitchFactor = 0.75 + (upgrades.speedLevel * 0.05);
+                let duration = Math.max(0.03, 0.18 - (upgrades.speedLevel * 0.003));
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(340 * pitchFactor, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(260 * pitchFactor, audioCtx.currentTime + duration);
+                filterNode.type = 'bandpass';
+                filterNode.frequency.value = 460 * pitchFactor;
+                filterNode.Q.value = 2.8;
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.09, audioCtx.currentTime + 0.01);
+                gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } 
+            else if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(750, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(180, audioCtx.currentTime + 0.04);
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.07);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.07);
+            } 
+            else if (type === 'kaching') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1150, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(1550, audioCtx.currentTime + 0.07);
+                gainNode.gain.setValueAtTime(0.22, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.1);
+                gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            }
+            else if (type === 'upgrade') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.12); 
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.24); 
+                osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.36); 
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.65);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.65);
+            }
+            else if (type === 'stapler') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            }
+            else if (type === 'laminator') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(160, audioCtx.currentTime + 0.5);
+                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            }
+        }
+
+        // COLLISION & PLACEMENT BOXES
+        const layouts = {
+            paperReserve: { x: 30, y: 400, w: 100, h: 90 },
+            paperFeederDropZone: { x: 240, y: 110, w: 230, h: 60 },
+            inkCap: { x: 370, y: 185, w: 90, h: 45 },
+            printOutputSlot: { x: 240, y: 285, w: 230, h: 30 },
+            deliveryBasket: { x: 580, y: 110, w: 140, h: 140 },
+            spareInksShelf: { x: 560, y: 390, w: 160, h: 110 },
+            
+            laminator: { x: 25, y: 240, w: 120, h: 70 },
+            stapler: { x: 30, y: 120, w: 110, h: 65 },
+
+            inkSlots: {
+                C: { x: 378, y: 195, w: 14, h: 30 },
+                M: { x: 398, y: 195, w: 14, h: 30 },
+                Y: { x: 418, y: 195, w: 14, h: 30 },
+                K: { x: 438, y: 195, w: 18, h: 30 }
+            },
+            shelfInks: {
+                C: { x: 570, y: 440, w: 22, h: 45 },
+                M: { x: 605, y: 440, w: 22, h: 45 },
+                Y: { x: 640, y: 440, w: 22, h: 45 },
+                K: { x: 675, y: 440, w: 26, h: 45 }
+            }
+        };
+
+        let draggables = [];
+        let activeDragItem = null;
+
+        // Interactive states
+        let laminationActive = false;
+        let laminationProgress = 0;
+        let laminatedItemRef = null;
+
+        function createDraggableSheets() {
+            draggables = draggables.filter(item => item.type !== 'blank_paper');
+            draggables.push({
+                type: 'blank_paper',
+                x: layouts.paperReserve.x + 10,
+                y: layouts.paperReserve.y + 10,
+                w: 80,
+                h: 65,
+                homeX: layouts.paperReserve.x + 10,
+                homeY: layouts.paperReserve.y + 10,
+                isDragging: false
+            });
+        }
+
+        function createDraggableCartridges() {
+            draggables = draggables.filter(item => !item.type.startsWith('cartridge_'));
+            ['C', 'M', 'Y', 'K'].forEach(color => {
+                const shelfPos = layouts.shelfInks[color];
+                draggables.push({
+                    type: `cartridge_${color}`,
+                    color: color,
+                    x: shelfPos.x,
+                    y: shelfPos.y,
+                    w: shelfPos.w,
+                    h: shelfPos.h,
+                    homeX: shelfPos.x,
+                    homeY: shelfPos.y,
+                    isDragging: false
+                });
+            });
+        }
+
+        function addTabletLog(text, isSuccess = false) {
+            const container = document.getElementById('log-container');
+            const p = document.createElement('p');
+            p.className = isSuccess ? "text-emerald-400" : "text-sky-300";
+            p.innerText = `> ${text}`;
+            container.appendChild(p);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // VIEW VIEWPORT CONTROLLER
+        function switchView(view) {
+            currentView = view;
+            
+            const btnDesk = document.getElementById('btnViewDesk');
+            const btnQuartier = document.getElementById('btnViewQuartier');
+            const workspaceTitle = document.getElementById('workspaceTitle');
+
+            if (view === 'main_desk') {
+                btnDesk.className = "px-3 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all bg-indigo-600 text-white";
+                btnQuartier.className = "px-3 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all text-slate-400 hover:text-white";
+                workspaceTitle.innerText = "ESPACE BUREAU INTERACTIF";
+            } else {
+                btnQuartier.className = "px-3 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all bg-indigo-600 text-white";
+                btnDesk.className = "px-3 py-1.5 text-[9px] font-bold uppercase rounded-lg transition-all text-slate-400 hover:text-white";
+                workspaceTitle.innerText = "🏙️ QUARTIER DES IMPRIMANTES (AGENCES STAGIAIRES)";
+            }
+
+            playSound('click');
+            drawDesk();
+        }
+
+        // ORDER SELECTOR
+        function changeActiveOrder() {
+            if (isPrinting || laminationActive) {
+                addTabletLog("Changement de contrat impossible pendant une opération.", false);
+                return;
+            }
+
+            const availableTemplates = customerTemplates.filter(tpl => {
+                if (tpl.inkCosts.C > 0 && !upgrades.colorsUnlocked.C) return false;
+                if (tpl.inkCosts.M > 0 && !upgrades.colorsUnlocked.M) return false;
+                if (tpl.inkCosts.Y > 0 && !upgrades.colorsUnlocked.Y) return false;
+                return true;
+            });
+
+            const currentIdx = activeOrder ? availableTemplates.indexOf(activeOrder) : -1;
+            let nextIdx = currentIdx;
+            
+            if (availableTemplates.length > 1) {
+                while (nextIdx === currentIdx) {
+                    nextIdx = Math.floor(Math.random() * availableTemplates.length);
+                }
+            } else {
+                nextIdx = 0;
+            }
+            
+            activeOrder = JSON.parse(JSON.stringify(availableTemplates[nextIdx])); // deep copy
+            
+            let demandsStaple = false;
+            let demandsLaminate = false;
+
+            if (equipment.stapler && Math.random() > 0.6) {
+                demandsStaple = true;
+            }
+            if (equipment.laminator && Math.random() > 0.6) {
+                demandsLaminate = true;
+            }
+
+            activeOrder.demandsStaple = demandsStaple;
+            activeOrder.demandsLaminate = demandsLaminate;
+
+            let extraMultipliers = 1.0;
+            let extTxt = "Aucune";
+
+            if (demandsStaple && demandsLaminate) {
+                extraMultipliers += 0.8;
+                extTxt = "Agrafé & Plastifié";
+            } else if (demandsLaminate) {
+                extraMultipliers += 0.5;
+                extTxt = "Plastifié";
+            } else if (demandsStaple) {
+                extraMultipliers += 0.3;
+                extTxt = "Agrafé";
+            }
+
+            let prestigeMult = 1.0 + (prestigeLevel * 0.5);
+            let qualityMult = 1.0 + ((upgrades.qualityLevel - 1) * 0.25);
+            let charismaMult = 1.0 + (upgrades.charismaLevel * 0.05);
+
+            let finalReward = activeOrder.reward * qualityMult * extraMultipliers * prestigeMult * charismaMult;
+            activeOrder.calculatedReward = finalReward;
+
+            document.getElementById('clientAvatar').innerText = activeOrder.avatar;
+            document.getElementById('clientName').innerText = activeOrder.name;
+            document.getElementById('clientDemandText').innerText = `"${activeOrder.demand}"`;
+            document.getElementById('reqDocType').innerText = activeOrder.docName;
+            document.getElementById('reqDocExtras').innerText = extTxt;
+            document.getElementById('orderReward').innerText = `$${finalReward.toFixed(2)}`;
+            
+            const badge = document.getElementById('badgeDemandColor');
+            let needsC = activeOrder.inkCosts.C > 0;
+            let needsM = activeOrder.inkCosts.M > 0;
+            let needsY = activeOrder.inkCosts.Y > 0;
+
+            if (needsC && needsM && needsY) {
+                badge.innerText = "COULEUR COMPLETE";
+                badge.className = "text-[9px] font-mono text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20 font-bold";
+            } else if (needsC || needsM || needsY) {
+                let colStr = [];
+                if (needsC) colStr.push("CYAN");
+                if (needsM) colStr.push("MAGENTA");
+                if (needsY) colStr.push("JAUNE");
+                badge.innerText = "COULEUR : " + colStr.join(" + ");
+                badge.className = "text-[9px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 font-bold";
+            } else {
+                badge.innerText = "MONOCHROME";
+                badge.className = "text-[9px] font-mono text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded border border-slate-500/20 font-bold";
+            }
+
+            addTabletLog(`Nouveau client : ${activeOrder.name}.`);
+        }
+
+        // TABLET COMPANION TAB SWITCHES
+        function switchTab(tab) {
+            const tabs = ['orders', 'upgrades', 'automation', 'prestige', 'save'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const panel = document.getElementById(`${t}Tab`);
+                if (t === tab) {
+                    btn.className = "flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-white/5 rounded-lg border border-white/5 transition-all whitespace-nowrap";
+                    panel.classList.remove('hidden');
+                    panel.classList.add('flex');
+                } else {
+                    btn.className = "flex-1 py-2 px-2.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all whitespace-nowrap";
+                    panel.classList.add('hidden');
+                    panel.classList.remove('flex');
+                }
+            });
+            
+            if (tab === 'upgrades') updateUpgradeShopUI();
+            if (tab === 'automation') updateAutomationShopUI();
+            if (tab === 'prestige') updatePrestigePanelUI();
+            playSound('click');
+        }
+
+        // CAPACITY GETTERS
+        function getInkMax() { return 100 * upgrades.inkCapLevel; }
+        function getPaperMax() { return 8 + (upgrades.paperCapLevel - 1) * 10; }
+
+        // PROGRESSION PRICES
+        function getUpgradePrice(type) {
+            if (type === 'color') {
+                if (!upgrades.colorsUnlocked.C) return 30;
+                if (!upgrades.colorsUnlocked.M) return 80;
+                if (!upgrades.colorsUnlocked.Y) return 180;
+                return 0;
+            }
+            if (type === 'speed') {
+                return Math.floor(15 * Math.pow(1.18, upgrades.speedLevel));
+            }
+            if (type === 'quality') {
+                return Math.floor(60 * Math.pow(1.8, upgrades.qualityLevel));
+            }
+            if (type === 'paper_cap') {
+                return Math.floor(25 * Math.pow(1.5, upgrades.paperCapLevel));
+            }
+            if (type === 'ink_cap') {
+                return Math.floor(40 * Math.pow(1.6, upgrades.inkCapLevel));
+            }
+            if (type === 'charisma') {
+                return Math.floor(20 * Math.pow(1.15, upgrades.charismaLevel + 1));
+            }
+            return 0;
+        }
+
+        // UPDATE STORE SHOP FRONTENDS
+        function updateUpgradeShopUI() {
+            // 1. Color Unlock Row
+            const btnColor = document.getElementById('btnUpgradeColor');
+            const descColor = document.getElementById('descUpgradeColor');
+            let colorPrice = getUpgradePrice('color');
+
+            if (!upgrades.colorsUnlocked.C) {
+                descColor.innerText = "Débloquez le Cyan pour imprimer les plans techniques de Mme Denise.";
+                btnColor.innerText = `Débloquer Cyan ($${colorPrice})`;
+                btnColor.disabled = false;
+                btnColor.className = "bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            } else if (!upgrades.colorsUnlocked.M) {
+                descColor.innerText = "Débloquez le Magenta pour imprimer des tons d'invitation roses.";
+                btnColor.innerText = `Débloquer Magenta ($${colorPrice})`;
+                btnColor.disabled = false;
+                btnColor.className = "bg-pink-600 hover:bg-pink-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            } else if (!upgrades.colorsUnlocked.Y) {
+                descColor.innerText = "Débloquez le Jaune pour le spectre photo complet et affiches de chantier.";
+                btnColor.innerText = `Débloquer Jaune ($${colorPrice})`;
+                btnColor.disabled = false;
+                btnColor.className = "bg-yellow-600 hover:bg-yellow-500 text-slate-900 font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            } else {
+                descColor.innerText = "Palette complète activée (C, M, Y, K) !";
+                btnColor.innerText = "COULEURS MAX";
+                btnColor.disabled = true;
+                btnColor.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+            }
+
+            // 2. Speed Upgrade Row
+            const btnSpeed = document.getElementById('btnUpgradeSpeed');
+            const descSpeed = document.getElementById('descUpgradeSpeed');
+            const barSpeed = document.getElementById('bar-spd-fill');
+            barSpeed.style.width = `${(upgrades.speedLevel / 50) * 100}%`;
+
+            if (upgrades.speedLevel >= 50) {
+                descSpeed.innerText = `Vitesse : ${getSpeedName(50)} (Max)`;
+                btnSpeed.innerText = "MAX";
+                btnSpeed.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+                btnSpeed.disabled = true;
+            } else {
+                let cost = getUpgradePrice('speed');
+                descSpeed.innerText = `Vitesse : ${getSpeedName(upgrades.speedLevel)} (Lvl ${upgrades.speedLevel}/50)`;
+                btnSpeed.innerText = `Améliorer ($${cost})`;
+                btnSpeed.className = "bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+                btnSpeed.disabled = false;
+            }
+
+            // 3. Quality Upgrade Row
+            const btnQuality = document.getElementById('btnUpgradeQuality');
+            const descQuality = document.getElementById('descUpgradeQuality');
+            if (upgrades.qualityLevel >= 5) {
+                descQuality.innerText = "Tête de précision : Atomique Ultime (Bénéfice : x2.00)";
+                btnQuality.innerText = "MAX";
+                btnQuality.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+                btnQuality.disabled = true;
+            } else {
+                let cost = getUpgradePrice('quality');
+                let benefit = 1.0 + ((upgrades.qualityLevel) * 0.25);
+                descQuality.innerText = `Précision (Lvl ${upgrades.qualityLevel}/5) -> Bénéfice : x${benefit.toFixed(2)}`;
+                btnQuality.innerText = `Améliorer ($${cost})`;
+                btnQuality.className = "bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+                btnQuality.disabled = false;
+            }
+
+            // 4. Paper Feeder Capacity Upgrade Row
+            const btnPaper = document.getElementById('btnUpgradePaperCap');
+            const descPaper = document.getElementById('descUpgradePaperCap');
+            if (upgrades.paperCapLevel >= 10) {
+                descPaper.innerText = `Max chargeur : ${getPaperMax()} feuilles (Max)`;
+                btnPaper.innerText = "MAX";
+                btnPaper.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+                btnPaper.disabled = true;
+            } else {
+                let cost = getUpgradePrice('paper_cap');
+                descPaper.innerText = `Capacité max : ${getPaperMax()} feuilles (Lvl ${upgrades.paperCapLevel}/10)`;
+                btnPaper.innerText = `Améliorer ($${cost})`;
+                btnPaper.className = "bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+                btnPaper.disabled = false;
+            }
+
+            // 5. Ink Tank Capacity Upgrade Row
+            const btnInk = document.getElementById('btnUpgradeInkCap');
+            const descInk = document.getElementById('descUpgradeInkCap');
+            if (upgrades.inkCapLevel >= 10) {
+                descInk.innerText = `Volume : ${getInkMax()}% max (Max)`;
+                btnInk.innerText = "MAX";
+                btnInk.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+                btnInk.disabled = true;
+            } else {
+                let cost = getUpgradePrice('ink_cap');
+                descInk.innerText = `Réservoirs max : ${getInkMax()}% d'encre (Lvl ${upgrades.inkCapLevel}/10)`;
+                btnInk.innerText = `Améliorer ($${cost})`;
+                btnInk.className = "bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+                btnInk.disabled = false;
+            }
+
+            // 6. Charisma/Tip Negotiator Row
+            const btnCharisma = document.getElementById('btnUpgradeCharisma');
+            const descCharisma = document.getElementById('descUpgradeCharisma');
+            if (upgrades.charismaLevel >= 30) {
+                descCharisma.innerText = "Négociation : Éloquence Absolue (+150% pourboires)";
+                btnCharisma.innerText = "MAX";
+                btnCharisma.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+                btnCharisma.disabled = true;
+            } else {
+                let cost = getUpgradePrice('charisma');
+                descCharisma.innerText = `Charisme : +${upgrades.charismaLevel * 5}% pourboires (Lvl ${upgrades.charismaLevel}/30)`;
+                btnCharisma.innerText = `Améliorer ($${cost})`;
+                btnCharisma.className = "bg-sky-600 hover:bg-sky-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+                btnCharisma.disabled = false;
+            }
+
+            // 7. Equipment purchases (Laminator & Stapler)
+            const btnLam = document.getElementById('btnEquipLaminator');
+            if (equipment.laminator) {
+                btnLam.innerText = "ACQUIS";
+                btnLam.disabled = true;
+                btnLam.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+            } else {
+                btnLam.innerText = "Acheter ($750)";
+                btnLam.className = "bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            }
+
+            const btnStaple = document.getElementById('btnEquipStapler');
+            if (equipment.stapler) {
+                btnStaple.innerText = "ACQUIS";
+                btnStaple.disabled = true;
+                btnStaple.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+            } else {
+                btnStaple.innerText = "Acheter ($400)";
+                btnStaple.className = "bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            }
+        }
+
+        // UPDATE ASSISTANTS UI
+        function updateAutomationShopUI() {
+            const btnCourier = document.getElementById('btnAutoCourier');
+            if (automation.courier) {
+                btnCourier.innerText = "EMBAUCHÉ";
+                btnCourier.disabled = true;
+                btnCourier.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+            } else {
+                btnCourier.innerText = "Embaucher ($2,500)";
+                btnCourier.className = "bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            }
+
+            const btnRefill = document.getElementById('btnAutoRefill');
+            if (automation.refiller) {
+                btnRefill.innerText = "ACTIF";
+                btnRefill.disabled = true;
+                btnRefill.className = "bg-slate-800 text-slate-500 font-bold text-[10px] py-1.5 px-3 rounded-lg border border-white/5 cursor-not-allowed whitespace-nowrap";
+            } else {
+                btnRefill.innerText = "Acheter ($3,500)";
+                btnRefill.className = "bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow transition-all active:scale-95 whitespace-nowrap";
+            }
+        }
+
+        // MILESTONES & ACHIEVEMENTS MANAGEMENT
+        function checkAchievements() {
+            achievementsList.forEach(ach => {
+                if (ach.unlocked) return;
+
+                let qualifies = false;
+                if (ach.required.pages && stats.pagesPrinted >= ach.required.pages) qualifies = true;
+                if (ach.required.money && stats.totalEarnings >= ach.required.money) qualifies = true;
+                if (ach.required.refilled && stats.timesRefilled >= ach.required.refilled) qualifies = true;
+
+                if (qualifies) {
+                    ach.unlocked = true;
+                    addTabletLog(`🏅 Trophée débloqué : "${ach.title}" ! Bonus: ${ach.rewardDesc}`, true);
+                    playSound('upgrade');
+                }
+            });
+            updatePrestigePanelUI();
+        }
+
+        function updatePrestigePanelUI() {
+            document.getElementById('statPages').innerText = stats.pagesPrinted;
+            document.getElementById('statMoney').innerText = `$${stats.totalEarnings.toFixed(2)}`;
+
+            const pBadge = document.getElementById('prestigeBadge');
+            if (prestigeLevel > 0) {
+                pBadge.classList.remove('hidden');
+                document.getElementById('prestigeLvlTxt').innerText = prestigeLevel;
+                document.getElementById('prestigeMultTxt').innerText = (1.0 + prestigeLevel * 0.5).toFixed(1);
+            } else {
+                pBadge.classList.add('hidden');
+            }
+
+            document.getElementById('badgePrestigeCount').innerText = `Niveau de Prestige : ${prestigeLevel}`;
+            
+            const container = document.getElementById('achievementsContainer');
+            container.innerHTML = "";
+
+            achievementsList.forEach(ach => {
+                const card = document.createElement('div');
+                card.className = `flex justify-between items-center p-2 rounded-xl border text-[10px] ${ach.unlocked ? 'bg-amber-500/10 border-amber-500/30' : 'bg-black/30 border-white/5 opacity-60'}`;
+                
+                card.innerHTML = `
+                    <div class="flex-1">
+                        <span class="font-bold block ${ach.unlocked ? 'text-amber-300' : 'text-slate-300'}">${ach.title}</span>
+                        <p class="text-slate-400 text-[8.5px]">${ach.desc}</p>
+                    </div>
+                    <div class="text-right whitespace-nowrap">
+                        <span class="font-bold text-[8px] block uppercase text-slate-500">BONUS</span>
+                        <span class="font-semibold ${ach.unlocked ? 'text-amber-400' : 'text-slate-400'}">${ach.rewardDesc}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // SHOP PURCHASING CONTROLLERS
+        function buyUpgrade(type) {
+            initAudio();
+            let cost = getUpgradePrice(type);
+
+            if (type === 'color') {
+                if (!upgrades.colorsUnlocked.C) {
+                    if (money >= cost) {
+                        money -= cost;
+                        upgrades.colorsUnlocked.C = true;
+                        addTabletLog("CANAL CYAN DÉBLOQUÉ ! Les plans techniques de Mme Denise sont disponibles.", true);
+                        playSound('upgrade');
+                        saveToLocalStorage();
+                        createDraggableCartridges(); 
+                        updateUpgradeShopUI();
+                        changeActiveOrder();
+                        drawDesk();
+                    } else {
+                        addTabletLog(`Fonds insuffisants pour débloquer le Cyan ($${cost}).`, false);
+                    }
+                } else if (!upgrades.colorsUnlocked.M) {
+                    if (money >= cost) {
+                        money -= cost;
+                        upgrades.colorsUnlocked.M = true;
+                        addTabletLog("CANAL MAGENTA DÉBLOQUÉ ! Les invitations de mariage de Chloé sont disponibles.", true);
+                        playSound('upgrade');
+                        saveToLocalStorage();
+                        createDraggableCartridges(); 
+                        updateUpgradeShopUI();
+                        changeActiveOrder();
+                        drawDesk();
+                    } else {
+                        addTabletLog(`Fonds insuffisants pour débloquer le Magenta ($${cost}).`, false);
+                    }
+                } else if (!upgrades.colorsUnlocked.Y) {
+                    if (money >= cost) {
+                        money -= cost;
+                        upgrades.colorsUnlocked.Y = true;
+                        addTabletLog("CANAL JAUNE DÉBLOQUÉ ! Spectre couleur complet actif.", true);
+                        playSound('upgrade');
+                        saveToLocalStorage();
+                        createDraggableCartridges(); 
+                        updateUpgradeShopUI();
+                        changeActiveOrder();
+                        drawDesk();
+                    } else {
+                        addTabletLog(`Fonds insuffisants pour débloquer le Jaune ($${cost}).`, false);
+                    }
+                }
+            } 
+            else if (type === 'speed' && upgrades.speedLevel < 50) {
+                if (money >= cost) {
+                    money -= cost;
+                    upgrades.speedLevel++;
+                    addTabletLog(`MOTEUR IMPRESSION AMÉLIORÉ : ${getSpeedName(upgrades.speedLevel)} (Niveau ${upgrades.speedLevel}/50) !`, true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                } else {
+                    addTabletLog(`Fonds insuffisants pour le moteur ($${cost}).`, false);
+                }
+            }
+            else if (type === 'quality' && upgrades.qualityLevel < 5) {
+                if (money >= cost) {
+                    money -= cost;
+                    upgrades.qualityLevel++;
+                    addTabletLog(`PRÉCISION DE PRODUCTION AMÉLIORÉE : Niveau ${upgrades.qualityLevel}/5 !`, true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                    changeActiveOrder();
+                } else {
+                    addTabletLog(`Fonds insuffisants pour la précision ($${cost}).`, false);
+                }
+            }
+            else if (type === 'paper_cap' && upgrades.paperCapLevel < 10) {
+                if (money >= cost) {
+                    money -= cost;
+                    upgrades.paperCapLevel++;
+                    addTabletLog(`CHARGEUR AGRANDI : Bac de ${getPaperMax()} feuilles !`, true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                    drawDesk();
+                } else {
+                    addTabletLog(`Fonds insuffisants pour agrandir le chargeur ($${cost}).`, false);
+                }
+            }
+            else if (type === 'ink_cap' && upgrades.inkCapLevel < 10) {
+                if (money >= cost) {
+                    money -= cost;
+                    upgrades.inkCapLevel++;
+                    addTabletLog(`RÉSERVOIRS CISS AGRANDIS : ${getInkMax()}% max par couleur !`, true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                    drawDesk();
+                } else {
+                    addTabletLog(`Fonds insuffisants pour agrandir les réservoirs ($${cost}).`, false);
+                }
+            }
+            else if (type === 'charisma' && upgrades.charismaLevel < 30) {
+                if (money >= cost) {
+                    money -= cost;
+                    upgrades.charismaLevel++;
+                    addTabletLog(`CHARISME AUGMENTÉ : +${upgrades.charismaLevel * 5}% pourboires !`, true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                    changeActiveOrder();
+                } else {
+                    addTabletLog(`Fonds insuffisants pour le charisme ($${cost}).`, false);
+                }
+            }
+            syncMoneyAndStats();
+        }
+
+        // EQUIPMENT PURCHASING CONTROLLER
+        function buyEquipment(type) {
+            initAudio();
+            if (type === 'laminator') {
+                if (money >= 750) {
+                    money -= 750;
+                    equipment.laminator = true;
+                    addTabletLog("PLASTIFIEUSE ACHETÉE ! Elle est prête sur le bureau pour plastifier le papier imprimé.", true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                    changeActiveOrder();
+                    drawDesk();
+                } else {
+                    addTabletLog("Fonds insuffisants pour acheter la plastifieuse ($750).", false);
+                }
+            }
+            else if (type === 'stapler') {
+                if (money >= 400) {
+                    money -= 400;
+                    equipment.stapler = true;
+                    addTabletLog("AGRAFEUSE CHANTIER ACHETÉE ! Prête à être utilisée sur le bureau.", true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateUpgradeShopUI();
+                    changeActiveOrder();
+                    drawDesk();
+                } else {
+                    addTabletLog("Fonds insuffisants pour l'agrafeuse ($400).", false);
+                }
+            }
+            syncMoneyAndStats();
+        }
+
+        // AUTOMATION ASSISTANTS CONTROLLER
+        function buyAutomation(type) {
+            initAudio();
+            if (type === 'courier') {
+                if (money >= 2500) {
+                    money -= 2500;
+                    automation.courier = true;
+                    addTabletLog("LIVREUR COURSIER EMBAUCHÉ ! Les documents finis du bureau seront livrés automatiquement.", true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateAutomationShopUI();
+                } else {
+                    addTabletLog("Fonds insuffisants pour le coursier ($2,500).", false);
+                }
+            }
+            else if (type === 'refiller') {
+                if (money >= 3500) {
+                    money -= 3500;
+                    automation.refiller = true;
+                    addTabletLog("POMPE DE REMPLISSAGE AUTOMATIQUE ACHETÉE ! Réapprovisionne le bureau automatiquement.", true);
+                    playSound('upgrade');
+                    saveToLocalStorage();
+                    updateAutomationShopUI();
+                } else {
+                    addTabletLog("Fonds insuffisants pour la pompe ($3,500).", false);
+                }
+            }
+            syncMoneyAndStats();
+        }
+
+        // PRESTIGE REORGANIZATION PROTOCOL
+        function triggerPrestigeReset() {
+            if (money < 1000) {
+                addTabletLog("Franchise refusée : Vous devez détenir au moins $1,000.", false);
+                return;
+            }
+
+            prestigeLevel++;
+            stats.pagesPrinted = 0;
+            
+            money = 0.00;
+            paperStock = 0;
+            isFirstCartridgeFree = true;
+            isInkCompartmentOpen = false;
+            ink = { C: 0, M: 0, Y: 0, K: 0 };
+
+            upgrades = {
+                colorsUnlocked: { C: false, M: false, Y: false, K: true },
+                speedLevel: 1,
+                qualityLevel: 1,
+                paperCapLevel: 1,
+                inkCapLevel: 1,
+                charismaLevel: 0
+            };
+
+            equipment = {
+                laminator: false,
+                stapler: false
+            };
+
+            automation = {
+                courier: false,
+                refiller: false
+            };
+
+            // Reset gratuitous interns to locked states as well
+            interns.forEach(i => {
+                i.unlocked = false;
+                i.progress = 0;
+                i.state = "Prêt";
+            });
+
+            draggables = [];
+            createDraggableSheets();
+            createDraggableCartridges();
+            
+            addTabletLog(`👑 FRANCHISE NIVEAU ${prestigeLevel} ÉTABLIE ! Bonus permanent de +${prestigeLevel * 50}% de bénéfice.`, true);
+            playSound('kaching');
+            
+            saveToLocalStorage();
+            syncMoneyAndStats();
+            updateUpgradeShopUI();
+            updateAutomationShopUI();
+            changeActiveOrder();
+            drawDesk();
+        }
+
+        function syncMoneyAndStats() {
+            document.getElementById('moneyCounter').innerText = `$${money.toFixed(2)}`;
+            checkAchievements();
+        }
+
+        // INTERACTIVE COORDINATES CALCULATIONS
+        function getCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: ((clientX - rect.left) / rect.width) * canvas.width,
+                y: ((clientY - rect.top) / rect.height) * canvas.height
+            };
+        }
+
+        // START MOUSE/TOUCH INTERACTION
+        function handleStart(e) {
+            if (e.cancelable) e.preventDefault();
+            initAudio();
+
+            const coords = getCoordinates(e);
+
+            // BRANCHING INTERACTION BY MODE
+            if (currentView === 'quartier') {
+                // Check clicks on the 4 Intern Cubicles Buttons to activate them
+                // Interns cost absolutely NOTHING ($0) to hire/activate!
+                const boxW = 310;
+                const boxH = 180;
+                const positions = [
+                    { x: 40, y: 80, intern: interns[0] },
+                    { x: 390, y: 80, intern: interns[1] },
+                    { x: 40, y: 290, intern: interns[2] },
+                    { x: 390, y: 290, intern: interns[3] }
+                ];
+
+                positions.forEach(pos => {
+                    const int = pos.intern;
+                    if (!int.unlocked) {
+                        // Activation button box
+                        const btnX = pos.x + 40;
+                        const btnY = pos.y + 115;
+                        const btnW = 230;
+                        const btnH = 30;
+
+                        if (coords.x >= btnX && coords.x <= btnX + btnW &&
+                            coords.y >= btnY && coords.y <= btnY + btnH) {
+                            
+                            int.unlocked = true;
+                            int.state = "Impression";
+                            addTabletLog(`Stagiaire ${int.name} recruté ! Il paie son propre matériel et produit de manière autonome.`, true);
+                            playSound('upgrade');
+                            saveToLocalStorage();
+                            drawDesk();
+                        }
+                    }
+                });
+                return;
+            }
+
+            // Normal Main Desk Coordinates Interactions
+            const cap = layouts.inkCap;
+            if (coords.x >= cap.x && coords.x <= cap.x + cap.w &&
+                coords.y >= cap.y && coords.y <= cap.y + cap.h && !isPrinting) {
+                isInkCompartmentOpen = !isInkCompartmentOpen;
+                playSound('click');
+                addTabletLog(isInkCompartmentOpen ? "Capot d'encre de l'imprimante : OUVERT." : "Capot d'encre de l'imprimante : FERMÉ.");
+                drawDesk();
+                return;
+            }
+
+            for (let i = draggables.length - 1; i >= 0; i--) {
+                const item = draggables[i];
+                if (coords.x >= item.x && coords.x <= item.x + item.w &&
+                    coords.y >= item.y && coords.y <= item.y + item.h) {
+                    
+                    if (item.type.startsWith('cartridge_')) {
+                        let isLocked = (item.color === 'C' && !upgrades.colorsUnlocked.C) ||
+                                       (item.color === 'M' && !upgrades.colorsUnlocked.M) ||
+                                       (item.color === 'Y' && !upgrades.colorsUnlocked.Y);
+
+                        if (isLocked) {
+                            addTabletLog(`Le canal d'encre [${item.color}] est verrouillé !`, false);
+                            continue;
+                        }
+
+                        if (!isInkCompartmentOpen) {
+                            addTabletLog("Ouvrez d'abord le capot d'encre de l'imprimante !", false);
+                            continue;
+                        }
+                    }
+
+                    activeDragItem = item;
+                    item.isDragging = true;
+                    item.dragOffset = {
+                        x: coords.x - item.x,
+                        y: coords.y - item.y
+                    };
+                    break;
+                }
+            }
+        }
+
+        function handleMove(e) {
+            if (!activeDragItem || currentView !== 'main_desk') return;
+            if (e.cancelable) e.preventDefault();
+
+            const coords = getCoordinates(e);
+            activeDragItem.x = coords.x - activeDragItem.dragOffset.x;
+            activeDragItem.y = coords.y - activeDragItem.dragOffset.y;
+
+            drawDesk();
+        }
+
+        // END MOUSE/TOUCH INTERACTION (COLLISION CHECKS)
+        function handleEnd(e) {
+            if (!activeDragItem || currentView !== 'main_desk') return;
+            if (e.cancelable) e.preventDefault();
+
+            const item = activeDragItem;
+            item.isDragging = false;
+            activeDragItem = null;
+
+            let actionTriggered = false;
+
+            if (item.type === 'blank_paper') {
+                const zone = layouts.paperFeederDropZone;
+                const cx = item.x + item.w / 2;
+                const cy = item.y + item.h / 2;
+
+                if (cx >= zone.x && cx <= zone.x + zone.w &&
+                    cy >= zone.y && cy <= zone.y + zone.h) {
+                    
+                    if (paperStock < getPaperMax()) {
+                        paperStock++;
+                        addTabletLog(`Papier inséré (${paperStock}/${getPaperMax()} feuilles).`, true);
+                        playSound('feed');
+                        actionTriggered = true;
+                    } else {
+                        addTabletLog("Le chargeur papier de l'imprimante est plein !", false);
+                    }
+                }
+            }
+            else if (item.type.startsWith('cartridge_') && isInkCompartmentOpen) {
+                const color = item.color;
+                const slot = layouts.inkSlots[color];
+                const cx = item.x + item.w / 2;
+                const cy = item.y + item.h / 2;
+
+                const margin = 20; 
+                if (cx >= slot.x - margin && cx <= slot.x + slot.w + margin &&
+                    cy >= slot.y - margin && cy <= slot.y + slot.h + margin) {
+                    
+                    let maxCapacity = getInkMax();
+                    if (ink[color] >= maxCapacity) {
+                        addTabletLog(`La cartouche [${color}] est pleine !`, false);
+                    } else {
+                        let cost = isFirstCartridgeFree ? 0 : 10;
+                        if (money >= cost || isFirstCartridgeFree) {
+                            if (isFirstCartridgeFree) {
+                                isFirstCartridgeFree = false;
+                                addTabletLog("Première recharge gratuite consommée !", true);
+                            } else {
+                                money -= cost;
+                                syncMoneyAndStats();
+                            }
+                            ink[color] = maxCapacity;
+                            stats.timesRefilled++;
+                            addTabletLog(`Cartouche [${color}] remplie à ${maxCapacity}%. Coût : $${cost.toFixed(2)}.`, true);
+                            playSound('click');
+                            actionTriggered = true;
+                        } else {
+                            addTabletLog("Fonds insuffisants ! Une recharge d'encre coûte $10.00.", false);
+                        }
+                    }
+                }
+            }
+            else if (item.type === 'printed_document') {
+                const cx = item.x + item.w / 2;
+                const cy = item.y + item.h / 2;
+
+                if (equipment.stapler) {
+                    const st = layouts.stapler;
+                    if (cx >= st.x && cx <= st.x + st.w && cy >= st.y && cy <= st.y + st.h) {
+                        if (!item.isStapled) {
+                            item.isStapled = true;
+                            stats.totalStapled++;
+                            addTabletLog("Document agrafé !", true);
+                            playSound('stapler');
+                            actionTriggered = true;
+                            
+                            item.x = st.x + 10;
+                            item.y = st.y + 40;
+                        } else {
+                            addTabletLog("Ce document est déjà agrafé.", false);
+                        }
+                    }
+                }
+
+                if (equipment.laminator && !actionTriggered) {
+                    const lam = layouts.laminator;
+                    if (cx >= lam.x && cx <= lam.x + lam.w && cy >= lam.y && cy <= lam.y + lam.h) {
+                        if (!item.isLaminated) {
+                            laminationActive = true;
+                            laminationProgress = 0;
+                            laminatedItemRef = item;
+                            
+                            draggables = draggables.filter(d => d !== item);
+                            
+                            addTabletLog("Plastification en cours... Veuillez patienter.");
+                            playSound('laminator');
+                            animateLamination();
+                            return;
+                        } else {
+                            addTabletLog("Ce document est déjà plastifié.", false);
+                        }
+                    }
+                }
+
+                if (!actionTriggered) {
+                    const basket = layouts.deliveryBasket;
+                    if (cx >= basket.x && cx <= basket.x + basket.w &&
+                        cy >= basket.y && cy <= basket.y + basket.h) {
+                        
+                        let mismatch = false;
+                        if (activeOrder.demandsLaminate && !item.isLaminated) {
+                            addTabletLog("Le client réclame un document plastifié (Laminated) !", false);
+                            mismatch = true;
+                        }
+                        if (activeOrder.demandsStaple && !item.isStapled) {
+                            addTabletLog("Le client réclame des pages agrafées (Stapled) !", false);
+                            mismatch = true;
+                        }
+
+                        if (!mismatch) {
+                            let reward = activeOrder.calculatedReward;
+                            money += reward;
+                            stats.totalEarnings += reward;
+                            
+                            addTabletLog(`Document livré à ${activeOrder.name} ! +$${reward.toFixed(2)}`, true);
+                            playSound('kaching');
+                            
+                            printedDocumentReady = false;
+                            draggables = draggables.filter(d => d.type !== 'printed_document');
+                            changeActiveOrder();
+                            saveToLocalStorage();
+                            syncMoneyAndStats();
+                            actionTriggered = true;
+                        }
+                    }
+                }
+            }
+
+            if (!actionTriggered || item.type === 'blank_paper' || item.type.startsWith('cartridge_')) {
+                item.x = item.homeX;
+                item.y = item.homeY;
+            }
+
+            drawDesk();
+        }
+
+        // LAMINATION ANIMATION LOOP
+        function animateLamination() {
+            if (!laminationActive) return;
+
+            laminationProgress += 1.5;
+            drawDesk();
+
+            if (laminationProgress >= 100) {
+                laminationActive = false;
+                stats.totalLaminated++;
+                
+                laminatedItemRef.isLaminated = true;
+                laminatedItemRef.x = layouts.laminator.x + 10;
+                laminatedItemRef.y = layouts.laminator.y + 40;
+                
+                draggables.push(laminatedItemRef);
+                laminatedItemRef = null;
+                
+                addTabletLog("Plastification thermique terminée !", true);
+                playSound('upgrade');
+            } else {
+                requestAnimationFrame(animateLamination);
+            }
+        }
+
+        // MASTER CANVAS RENDERING ENTRY
+        function drawDesk() {
+            if (currentView === 'main_desk') {
+                drawMainDesk();
+            } else {
+                drawQuartier();
+            }
+        }
+
+        // 1. RENDER MAIN WOODEN DESK WORKSPACE
+        function drawMainDesk() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let deskGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            deskGrad.addColorStop(0, '#26170d');
+            deskGrad.addColorStop(1, '#0c0704');
+            ctx.fillStyle = deskGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.012)';
+            ctx.lineWidth = 1;
+            for (let y = 40; y < canvas.height; y += 75) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            drawInteractiveDropZones();
+            drawDeskFurniture();
+            drawPrinterGraphics();
+            drawDraggableItems();
+        }
+
+        // 2. RENDER THE INTERN DISTRICT "QUARTIER DES IMPRIMANTES"
+        function drawQuartier() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Office Carpet Floor
+            let floorGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            floorGrad.addColorStop(0, '#0f172a');
+            floorGrad.addColorStop(1, '#020617');
+            ctx.fillStyle = floorGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Office wall paneling grids
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.03)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // District Title
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 15px "JetBrains Mono"';
+            ctx.textAlign = 'center';
+            ctx.fillText("🏙️ ESPACE CO-WORKING : LE QUARTIER DES IMPRIMANTES", canvas.width/2, 35);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px "JetBrains Mono"';
+            ctx.fillText("Vos stagiaires travaillent bénévolement pour accumuler des heures d'expérience professionnelle !", canvas.width/2, 53);
+
+            // Render 4 Intern cubicles grid
+            const boxW = 310;
+            const boxH = 180;
+            const positions = [
+                { x: 40, y: 80, intern: interns[0] },
+                { x: 390, y: 80, intern: interns[1] },
+                { x: 40, y: 290, intern: interns[2] },
+                { x: 390, y: 290, intern: interns[3] }
+            ];
+
+            positions.forEach(pos => {
+                const int = pos.intern;
+                
+                // Card panel background
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = int.unlocked ? 'rgba(15, 23, 42, 0.85)' : 'rgba(15, 23, 42, 0.35)';
+                ctx.strokeStyle = int.unlocked ? int.color : 'rgba(255, 255, 255, 0.08)';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.roundRect(pos.x, pos.y, boxW, boxH, 16);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                if (!int.unlocked) {
+                    // Locked Overlay / Recruitment Screen
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+                    ctx.font = 'bold 11px "JetBrains Mono"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Bureau de Stagiaire Libre`, pos.x + boxW/2, pos.y + 40);
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '8.5px "JetBrains Mono"';
+                    ctx.fillText("Bénévole : s'autofinance à 100%", pos.x + boxW/2, pos.y + 65);
+                    ctx.fillText(`Cible passive : +$${int.reward.toFixed(2)} / cycle`, pos.x + boxW/2, pos.y + 80);
+
+                    // Free Activation button
+                    const btnX = pos.x + 40;
+                    const btnY = pos.y + 115;
+                    const btnW = 230;
+                    const btnH = 30;
+
+                    ctx.fillStyle = '#10b981';
+                    ctx.beginPath();
+                    ctx.roundRect(btnX, btnY, btnW, btnH, 8);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 10px "JetBrains Mono"';
+                    ctx.fillText("ACTIVER LE STAGIAIRE (GRATUIT)", btnX + btnW/2, btnY + 18);
+                } else {
+                    // Active Intern Screen representation
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px "JetBrains Mono"';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`${int.avatar} Bureau de ${int.name}`, pos.x + 18, pos.y + 28);
+
+                    // Badge "Auto-financé"
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(pos.x + boxW - 110, pos.y + 15, 95, 16, 4);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#10b981';
+                    ctx.font = 'bold 7px "JetBrains Mono"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("COÛT SANS EFFORT ($0)", pos.x + boxW - 62, pos.y + 25);
+
+                    // Drawing mini pixel-art cubicle and mini-printer inside card
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(pos.x + 18, pos.y + 45, 90, 60); // cubicle desk
+                    ctx.strokeStyle = '#334155';
+                    ctx.strokeRect(pos.x + 18, pos.y + 45, 90, 60);
+
+                    // Mini printer outline
+                    ctx.fillStyle = '#475569';
+                    ctx.fillRect(pos.x + 35, pos.y + 55, 55, 30);
+                    
+                    // Mini progress carriage moving back and forth during print
+                    if (int.progress > 0) {
+                        ctx.fillStyle = '#38bdf8';
+                        let carriageSweep = pos.x + 40 + (Math.sin(Date.now() / 150) * 15 + 15);
+                        ctx.fillRect(carriageSweep, pos.y + 55, 10, 5);
+                    }
+
+                    // Intern Stat details
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.font = '8px "JetBrains Mono"';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`Production : +$${int.reward.toFixed(2)}`, pos.x + 125, pos.y + 55);
+                    ctx.fillText(`Status : ${int.state}`, pos.x + 125, pos.y + 70);
+                    ctx.fillText("Fournitures : Payées par le stagiaire", pos.x + 125, pos.y + 85);
+
+                    // Printing progress bar
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.roundRect(pos.x + 18, pos.y + 125, boxW - 36, 12, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = int.color;
+                    ctx.beginPath();
+                    ctx.roundRect(pos.x + 18, pos.y + 125, (int.progress/100) * (boxW - 36), 12, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 7px "JetBrains Mono"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`IMPRESSION AUTONOME : ${Math.floor(int.progress)}%`, pos.x + boxW/2, pos.y + 134);
+                }
+            });
+        }
+
+        // GRID OVERLAYS DURING MAIN DRAG EVENTS
+        function drawInteractiveDropZones() {
+            if (!activeDragItem) return;
+
+            ctx.save();
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([8, 5]);
+
+            if (activeDragItem.type === 'blank_paper') {
+                ctx.strokeStyle = '#38bdf8';
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+                ctx.beginPath();
+                ctx.roundRect(layouts.paperFeederDropZone.x, layouts.paperFeederDropZone.y, layouts.paperFeederDropZone.w, layouts.paperFeederDropZone.h, 10);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            if (activeDragItem.type.startsWith('cartridge_') && isInkCompartmentOpen) {
+                const color = activeDragItem.color;
+                const slot = layouts.inkSlots[color];
+                
+                ctx.strokeStyle = '#f43f5e';
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.18)';
+                ctx.beginPath();
+                ctx.roundRect(slot.x - 12, slot.y - 12, slot.w + 24, slot.h + 24, 6);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            if (activeDragItem.type === 'printed_document') {
+                ctx.strokeStyle = '#10b981';
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+                ctx.beginPath();
+                ctx.roundRect(layouts.deliveryBasket.x, layouts.deliveryBasket.y, layouts.deliveryBasket.w, layouts.deliveryBasket.h, 12);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // DESK STATIONS DECORATION ELEMENTS
+        function drawDeskFurniture() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.roundRect(layouts.paperReserve.x - 6, layouts.paperReserve.y - 6, layouts.paperReserve.w + 12, layouts.paperReserve.h + 12, 10);
+            ctx.fill();
+
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.roundRect(layouts.paperReserve.x, layouts.paperReserve.y, layouts.paperReserve.w, layouts.paperReserve.h, 6);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.beginPath();
+            ctx.roundRect(layouts.deliveryBasket.x - 4, layouts.deliveryBasket.y - 4, layouts.deliveryBasket.w + 8, layouts.deliveryBasket.h + 8, 14);
+            ctx.fill();
+
+            ctx.fillStyle = '#3a2113';
+            ctx.beginPath();
+            ctx.roundRect(layouts.deliveryBasket.x, layouts.deliveryBasket.y, layouts.deliveryBasket.w, layouts.deliveryBasket.h, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#54311c';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = 1.5;
+            for (let x = layouts.deliveryBasket.x + 15; x < layouts.deliveryBasket.x + layouts.deliveryBasket.w; x += 15) {
+                ctx.beginPath();
+                ctx.moveTo(x, layouts.deliveryBasket.y);
+                ctx.lineTo(x, layouts.deliveryBasket.y + layouts.deliveryBasket.h);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.roundRect(layouts.deliveryBasket.x + 15, layouts.deliveryBasket.y + layouts.deliveryBasket.h - 22, layouts.deliveryBasket.w - 30, 14, 4);
+            ctx.fill();
+            
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 8px "JetBrains Mono"';
+            ctx.textAlign = 'center';
+            ctx.fillText("LIVRAISON", layouts.deliveryBasket.x + layouts.deliveryBasket.w / 2, layouts.deliveryBasket.y + layouts.deliveryBasket.h - 12);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(layouts.spareInksShelf.x, layouts.spareInksShelf.y + 80, layouts.spareInksShelf.w, 15);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(layouts.spareInksShelf.x, layouts.spareInksShelf.y, layouts.spareInksShelf.w, 85);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(layouts.spareInksShelf.x, layouts.spareInksShelf.y, layouts.spareInksShelf.w, 85);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 7px "JetBrains Mono"';
+            ctx.fillText("ÉTAGÈRE ENCRES", layouts.spareInksShelf.x + layouts.spareInksShelf.w/2, layouts.spareInksShelf.y + 14);
+
+            ctx.fillStyle = isFirstCartridgeFree ? '#10b981' : '#f43f5e';
+            ctx.font = 'bold 6px "JetBrains Mono"';
+            ctx.fillText(isFirstCartridgeFree ? "1ÈRE RECHARGE GRATUITE !" : "RECHARGE : $10.00", layouts.spareInksShelf.x + layouts.spareInksShelf.w/2, layouts.spareInksShelf.y + 24);
+
+            if (equipment.laminator) {
+                ctx.save();
+                ctx.fillStyle = '#475569';
+                ctx.beginPath();
+                ctx.roundRect(layouts.laminator.x, layouts.laminator.y, layouts.laminator.w, layouts.laminator.h, 8);
+                ctx.fill();
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(layouts.laminator.x + 10, layouts.laminator.y + 15, layouts.laminator.w - 20, 8);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 7.5px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText("PLASTIFIEUSE", layouts.laminator.x + layouts.laminator.w/2, layouts.laminator.y + 36);
+
+                ctx.beginPath();
+                ctx.arc(layouts.laminator.x + 20, layouts.laminator.y + 52, 3, 0, Math.PI*2);
+                ctx.fillStyle = laminationActive ? '#f59e0b animate-pulse' : '#10b981';
+                ctx.fill();
+                
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '6.5px "JetBrains Mono"';
+                ctx.textAlign = 'left';
+                ctx.fillText(laminationActive ? "CHAUFFAGE..." : "PRÊT", layouts.laminator.x + 28, layouts.laminator.y + 55);
+
+                if (laminationActive) {
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.fillRect(layouts.laminator.x + 10, layouts.laminator.y + 60, (laminationProgress/100)*(layouts.laminator.w - 20), 4);
+                }
+                ctx.restore();
+            }
+
+            if (equipment.stapler) {
+                ctx.save();
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.roundRect(layouts.stapler.x, layouts.stapler.y, layouts.stapler.w, layouts.stapler.h, 6);
+                ctx.fill();
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillRect(layouts.stapler.x + 15, layouts.stapler.y + 30, layouts.stapler.w - 30, 10);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(layouts.stapler.x + 25, layouts.stapler.y + 40, 15, 12);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 7.5px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText("AGRAFEUSE", layouts.stapler.x + layouts.stapler.w/2, layouts.stapler.y + 18);
+                ctx.restore();
+            }
+        }
+
+        // CISS EXTERNAL INK CONTAINER GRAPHICS
+        function drawExternalInkReservoirs() {
+            const rx = 165;
+            const ry = 190;
+            const rw = 40;
+            const rh = 90;
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetY = 8;
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.beginPath();
+            ctx.roundRect(rx, ry, rw, rh, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+
+            const chamW = 6;
+            const chamGap = 3;
+            const startX = rx + 3.5;
+            const chamH = rh - 22;
+            const chamY = ry + 8;
+
+            const colors = {
+                C: { fill: '#06b6d4', empty: '#155e75', text: '#22d3ee' },
+                M: { fill: '#ec4899', empty: '#9d174d', text: '#f472b6' },
+                Y: { fill: '#eab308', empty: '#854d0e', text: '#fde047' },
+                K: { fill: '#cbd5e1', empty: '#334155', text: '#cbd5e1' } // Pale grey for black visibility
+            };
+
+            ['C', 'M', 'Y', 'K'].forEach((color, idx) => {
+                const cx = startX + idx * (chamW + chamGap);
+                
+                ctx.fillStyle = '#020617';
+                ctx.beginPath();
+                ctx.roundRect(cx, chamY, chamW, chamH, 2);
+                ctx.fill();
+
+                let maxCapacity = getInkMax();
+                const fillPct = ink[color] / maxCapacity;
+                const fillH = chamH * fillPct;
+                const fillY = chamY + (chamH - fillH);
+
+                if (fillH > 0) {
+                    ctx.fillStyle = colors[color].fill;
+                    ctx.beginPath();
+                    ctx.roundRect(cx, fillY, chamW, fillH, 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                    ctx.fillRect(cx + 1, fillY, 1.5, fillH);
+                }
+
+                if (ink[color] < (maxCapacity * 0.15)) {
+                    const flash = Math.floor(Date.now() / 250) % 2 === 0;
+                    if (flash) {
+                        ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+                        ctx.fillRect(cx, chamY, chamW, chamH);
+                    }
+                }
+
+                ctx.fillStyle = colors[color].text;
+                ctx.font = 'bold 7px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText(color, cx + chamW/2, ry + rh - 6);
+            });
+
+            ctx.save();
+            ctx.lineWidth = 1.25;
+            ['C', 'M', 'Y', 'K'].forEach((color, idx) => {
+                const cx = startX + idx * (chamW + chamGap) + chamW/2;
+                const cy = chamY;
+                
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.bezierCurveTo(cx, cy - 15, 215, cy - 8, 222, cy + 12 + idx * 4);
+                ctx.strokeStyle = colors[color].fill + 'a0';
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+
+        // PRINTER HARDWARE STRUCTURE DESIGN
+        function drawPrinterGraphics() {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+            ctx.shadowBlur = 30;
+            ctx.shadowOffsetY = 12;
+
+            ctx.fillStyle = '#1e293b'; 
+            ctx.beginPath();
+            ctx.roundRect(210, 120, 310, 220, [24, 24, 10, 10]);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+
+            drawExternalInkReservoirs();
+
+            ctx.fillStyle = '#020617';
+            ctx.beginPath();
+            ctx.roundRect(layouts.paperFeederDropZone.x, layouts.paperFeederDropZone.y + 20, layouts.paperFeederDropZone.w, 20, 5);
+            ctx.fill();
+
+            ctx.fillStyle = '#f8fafc';
+            for (let i = 0; i < Math.min(paperStock, 5); i++) {
+                ctx.fillRect(layouts.paperFeederDropZone.x + 15 - i * 1.5, layouts.paperFeederDropZone.y + 12 + i * 2, 200, 25);
+            }
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(layouts.paperFeederDropZone.x + 5, layouts.paperFeederDropZone.y + 35, 220, 4);
+
+            let topGrad = ctx.createLinearGradient(225, 130, 225, 230);
+            topGrad.addColorStop(0, '#334155');
+            topGrad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = topGrad;
+            ctx.beginPath();
+            ctx.roundRect(225, 130, 280, 100, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(225, 212, 280, 18);
+
+            ctx.beginPath();
+            ctx.arc(240, 221, 4, 0, Math.PI * 2);
+            if (isPrinting) {
+                let pulseFreq = Math.max(80, 450 - (upgrades.speedLevel * 10));
+                ctx.fillStyle = (Math.floor(Date.now() / pulseFreq) % 2 === 0) ? '#eab308' : '#ca8a04';
+            } else {
+                ctx.fillStyle = '#10b981'; 
+            }
+            ctx.fill();
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(255, 216, 60, 10);
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 6px "JetBrains Mono"';
+            ctx.textAlign = 'left';
+            
+            let statusText = isPrinting ? "PRNT" : `PAG:${paperStock}`;
+            ctx.fillText(statusText, 258, 224);
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '5px "JetBrains Mono"';
+            ctx.fillText(`V.${upgrades.speedLevel} Q.${upgrades.qualityLevel}`, 292, 224);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.roundRect(230, 275, 270, 45, 8);
+            ctx.fill();
+
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(240, 285, 250, 20);
+
+            const cap = layouts.inkCap;
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            ctx.roundRect(cap.x, cap.y, cap.w, cap.h, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.stroke();
+
+            if (isInkCompartmentOpen) {
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(cap.x + 4, cap.y + 4, cap.w - 8, cap.h - 8);
+
+                ['C', 'M', 'Y', 'K'].forEach(color => {
+                    const slot = layouts.inkSlots[color];
+                    
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(slot.x, slot.y, slot.w, slot.h);
+
+                    let maxCap = getInkMax();
+                    let fill = ink[color] / maxCap;
+                    let fillHeight = slot.h * fill;
+                    
+                    let colHex = '#475569';
+                    if (color === 'C') colHex = '#06b6d4';
+                    else if (color === 'M') colHex = '#ec4899';
+                    else if (color === 'Y') colHex = '#eab308';
+                    else if (color === 'K') colHex = '#cbd5e1'; // Pale grey for black
+
+                    ctx.fillStyle = colHex;
+                    ctx.fillRect(slot.x, slot.y + (slot.h - fillHeight), slot.w, fillHeight);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 6px "JetBrains Mono"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(color, slot.x + slot.w/2, slot.y + 9);
+                });
+            } else {
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 6.5px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText("HATCH CAP", cap.x + cap.w / 2, cap.y + 20);
+                ctx.fillText("RECHARGES", cap.x + cap.w / 2, cap.y + 32);
+            }
+
+            if (isPrinting && printProgress > 0) {
+                drawEmergingPaper();
+            }
+
+            if (isPrinting) {
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(carriageX, 280, 20, 12);
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(carriageX + 8, 282, 4, 4);
+            }
+        }
+
+        // EMERGING SHEET RENDERER
+        function drawEmergingPaper() {
+            const outX = 250;
+            const outY = 295;
+            const outW = 230;
+            const maxOutH = 110;
+
+            let currentH = (printProgress / 100) * maxOutH;
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+
+            ctx.fillStyle = '#fafaf9';
+            ctx.fillRect(outX, outY, outW, currentH);
+            ctx.shadowColor = 'transparent';
+
+            ctx.beginPath();
+            ctx.rect(outX, outY, outW, currentH);
+            ctx.clip();
+
+            ctx.translate(outX, outY);
+            if (activeOrder) {
+                const drawFn = activeDocumentsRenders[activeOrder.docType];
+                if (drawFn) drawFn(ctx, printProgress / 100, outW, maxOutH);
+            }
+
+            ctx.restore();
+        }
+
+        // ACTIVE DOCUMENTS GRAPHICS SCHEMATICS
+        const activeDocumentsRenders = {
+            lease: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#ffffff';
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#0f172a';
+                pCtx.font = 'bold 9px "JetBrains Mono"';
+                pCtx.fillText("CONTRAT DE BAIL STANDARD", 15, 20);
+
+                pCtx.strokeStyle = '#94a3b8';
+                pCtx.lineWidth = 1;
+                pCtx.beginPath(); pCtx.moveTo(15, 26); pCtx.lineTo(w-15, 26); pCtx.stroke();
+
+                pCtx.fillStyle = '#64748b';
+                let startY = 38;
+                for (let i = 0; i < 4; i++) {
+                    pCtx.fillRect(15, startY, w - 30, 2.5);
+                    pCtx.fillRect(15, startY + 5, w * 0.7, 2.5);
+                    startY += 14;
+                }
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            thesis: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#fbfbf9';
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#1e293b';
+                pCtx.font = 'bold 8.5px "JetBrains Mono"';
+                pCtx.fillText("MÉMOIRE DE RECHERCHE - LUCIE", 15, 20);
+
+                pCtx.fillStyle = '#475569';
+                pCtx.font = 'italic 7px "JetBrains Mono"';
+                pCtx.fillText("Par Lucie • Session 2026", 15, 30);
+
+                pCtx.fillStyle = '#94a3b8';
+                let startY = 42;
+                for (let i = 0; i < 5; i++) {
+                    pCtx.fillRect(15, startY, w - 30, 2);
+                    startY += 10;
+                }
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            invoice: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#ffffff';
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#0f172a';
+                pCtx.font = 'bold 10px "JetBrains Mono"';
+                pCtx.fillText("AVIS FISCAL : REVENUS 2026", 15, 22);
+
+                pCtx.strokeStyle = '#0f172a';
+                pCtx.strokeRect(15, 32, w - 30, 50);
+
+                pCtx.fillStyle = '#64748b';
+                pCtx.fillRect(20, 42, 60, 4);
+                pCtx.fillRect(20, 52, 80, 4);
+                pCtx.fillRect(20, 62, 50, 4);
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            manuscript: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#fbf9f4'; 
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#111827';
+                pCtx.font = 'italic 9px "JetBrains Mono"';
+                pCtx.fillText("CHAPITRE PREMIER - LE MEURTRE", 15, 22);
+
+                pCtx.fillStyle = '#374151';
+                let startY = 36;
+                for (let i = 0; i < 6; i++) {
+                    pCtx.fillRect(15, startY, w - 30, 2);
+                    startY += 12;
+                }
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            cyan_blueprint: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#0f172a';
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.strokeStyle = '#06b6d4';
+                pCtx.lineWidth = 1;
+                for (let x = 10; x < w; x += 15) {
+                    pCtx.beginPath(); pCtx.moveTo(x, 0); pCtx.lineTo(x, h * progress); pCtx.stroke();
+                }
+                for (let y = 10; y < h * progress; y += 15) {
+                    pCtx.beginPath(); pCtx.moveTo(0, y); pCtx.lineTo(w, y); pCtx.stroke();
+                }
+
+                pCtx.strokeStyle = '#06b6d4';
+                pCtx.lineWidth = 2;
+                pCtx.strokeRect(30, 20, w - 60, h - 40);
+
+                pCtx.fillStyle = '#06b6d4';
+                pCtx.font = 'bold 8px "JetBrains Mono"';
+                pCtx.fillText("PLANS ARCHITECTURAUX - MME DENISE", 45, 40);
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            wedding_invite: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#fdf2f8';
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#db2777';
+                pCtx.font = 'bold 9px "JetBrains Mono"';
+                pCtx.textAlign = 'center';
+                pCtx.fillText("Faire-part d'Exception", w/2, 25);
+
+                pCtx.strokeStyle = '#ec4899';
+                pCtx.lineWidth = 1.5;
+                pCtx.beginPath();
+                pCtx.roundRect(15, 12, w - 30, h - 24, 6);
+                pCtx.stroke();
+
+                pCtx.fillStyle = '#475569';
+                pCtx.font = 'italic 7px "JetBrains Mono"';
+                pCtx.fillText("Un mariage floral - Rose Magenta", w/2, 45);
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            yellow_sign: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#eab308';
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#0f172a';
+                for (let x = -20; x < w; x += 30) {
+                    pCtx.beginPath();
+                    pCtx.moveTo(x, 0);
+                    pCtx.lineTo(x + 12, 0);
+                    pCtx.lineTo(x + 32, h * progress);
+                    pCtx.lineTo(x + 20, h * progress);
+                    pCtx.closePath();
+                    pCtx.fill();
+                }
+
+                pCtx.fillStyle = '#eab308';
+                pCtx.beginPath();
+                pCtx.roundRect(30, 15, w - 60, h - 30, 8);
+                pCtx.fill();
+                pCtx.strokeStyle = '#0f172a';
+                pCtx.lineWidth = 3;
+                pCtx.stroke();
+
+                pCtx.fillStyle = '#0f172a';
+                pCtx.font = 'black 12px "JetBrains Mono"';
+                pCtx.textAlign = 'center';
+                pCtx.fillText("🚧 DANGER CHANTIER 🚧", w/2, h/2 - 1);
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            party_flyer: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#581c87'; 
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                let radial = pCtx.createRadialGradient(w/2, h/2, 5, w/2, h/2, 70);
+                radial.addColorStop(0, '#ec4899');
+                radial.addColorStop(1, '#06b6d4');
+                pCtx.fillStyle = radial;
+                pCtx.beginPath();
+                pCtx.arc(w/2, h/2, 50, 0, Math.PI * 2);
+                pCtx.fill();
+
+                pCtx.fillStyle = '#ffffff';
+                pCtx.font = 'bold 11px "JetBrains Mono"';
+                pCtx.textAlign = 'center';
+                pCtx.fillText("VIOLET ELECTRO LIVE", w/2, 30);
+                drawQualityCertStamp(pCtx, w, h);
+            },
+            cat: function(pCtx, progress, w, h) {
+                pCtx.fillStyle = '#fef08a'; 
+                pCtx.fillRect(0, 0, w, h * progress);
+
+                pCtx.fillStyle = '#f97316';
+                pCtx.beginPath();
+                pCtx.arc(w/2, h * 0.5, 28, 0, Math.PI * 2);
+                pCtx.fill();
+
+                pCtx.fillStyle = '#10b981';
+                pCtx.beginPath();
+                pCtx.arc(w/2 - 10, h * 0.47, 5, 0, Math.PI * 2);
+                pCtx.arc(w/2 + 10, h * 0.47, 5, 0, Math.PI * 2);
+                pCtx.fill();
+
+                pCtx.fillStyle = '#000000';
+                pCtx.beginPath();
+                pCtx.arc(w/2 - 10, h * 0.47, 2.5, 0, Math.PI * 2);
+                pCtx.arc(w/2 + 10, h * 0.47, 2.5, 0, Math.PI * 2);
+                pCtx.fill();
+
+                pCtx.fillStyle = '#ca8a04';
+                pCtx.font = 'bold 9px "JetBrains Mono"';
+                pCtx.textAlign = 'center';
+                pCtx.fillText("PHOTO CHAT DE COMPAGNIE", w/2, h * 0.16);
+                drawQualityCertStamp(pCtx, w, h);
+            }
+        };
+
+        function drawQualityCertStamp(pCtx, w, h) {
+            pCtx.save();
+            pCtx.textAlign = 'center';
+            if (upgrades.qualityLevel >= 2) {
+                let col = upgrades.qualityLevel === 5 ? 'rgba(234, 179, 8, 0.95)' : 'rgba(56, 189, 248, 0.9)';
+                let tagTxt = upgrades.qualityLevel === 5 ? "★ ULTIME ★" : `★ Q.${upgrades.qualityLevel} ★`;
+                
+                pCtx.fillStyle = 'rgba(56, 189, 248, 0.15)'; 
+                pCtx.strokeStyle = col;
+                pCtx.lineWidth = 1.5;
+                pCtx.beginPath();
+                pCtx.roundRect(w - 60, h - 28, 52, 16, 4);
+                pCtx.fill();
+                pCtx.stroke();
+                
+                pCtx.fillStyle = col;
+                pCtx.font = 'black 6.5px "JetBrains Mono"';
+                pCtx.fillText(tagTxt, w - 34, h - 17);
+            }
+            pCtx.restore();
+        }
+
+        // DRAGGABLE GRAPHICS GENERATORS
+        function drawDraggableItems() {
+            draggables.forEach(item => {
+                ctx.save();
+
+                if (item.isDragging) {
+                    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                    ctx.shadowBlur = 12;
+                    ctx.shadowOffsetY = 8;
+                }
+
+                if (item.type === 'blank_paper') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.roundRect(item.x, item.y, item.w, item.h, 5);
+                    ctx.fill();
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#f1f5f9';
+                    ctx.fillRect(item.x + 10, item.y + 12, item.w - 20, 2);
+                    ctx.fillRect(item.x + 10, item.y + 24, item.w - 20, 2);
+                } 
+                else if (item.type.startsWith('cartridge_')) {
+                    let isLocked = (item.color === 'C' && !upgrades.colorsUnlocked.C) ||
+                                   (item.color === 'M' && !upgrades.colorsUnlocked.M) ||
+                                   (item.color === 'Y' && !upgrades.colorsUnlocked.Y);
+
+                    let colHex = '#475569';
+                    if (!isLocked) {
+                        if (item.color === 'C') colHex = '#06b6d4';
+                        else if (item.color === 'M') colHex = '#ec4899';
+                        else if (item.color === 'Y') colHex = '#eab308';
+                        else if (item.color === 'K') colHex = '#cbd5e1'; 
+                    }
+
+                    ctx.fillStyle = colHex;
+                    ctx.beginPath();
+                    ctx.roundRect(item.x, item.y, item.w, item.h, 5);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = isLocked ? '#94a3b8' : '#fbbf24';
+                    ctx.fillRect(item.x + item.w/2 - 4, item.y + item.h - 5, 8, 3);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 9px "JetBrains Mono"';
+                    ctx.textAlign = 'center';
+                    
+                    if (isLocked) {
+                        ctx.fillText("🔒", item.x + item.w/2, item.y + 20);
+                    } else {
+                        ctx.fillText(item.color, item.x + item.w/2, item.y + 16);
+                    }
+                } 
+                else if (item.type === 'printed_document') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.roundRect(item.x, item.y, item.w, item.h, 6);
+                    ctx.fill();
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.roundRect(item.x, item.y, item.w, item.h, 6);
+                    ctx.clip();
+                    
+                    ctx.translate(item.x, item.y);
+                    const drawFn = activeDocumentsRenders[item.docType];
+                    if (drawFn) drawFn(ctx, 1.0, item.w, item.h);
+                    
+                    ctx.restore();
+
+                    if (item.isStapled) {
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.fillRect(item.x + 6, item.y + 6, 8, 2); 
+                    }
+
+                    if (item.isLaminated) {
+                        let glassGrad = ctx.createLinearGradient(item.x, item.y, item.x + item.w, item.y + item.h);
+                        glassGrad.addColorStop(0, 'rgba(255,255,255,0.3)');
+                        glassGrad.addColorStop(0.5, 'rgba(255,255,255,0.02)');
+                        glassGrad.addColorStop(1, 'rgba(255,255,255,0.3)');
+                        
+                        ctx.fillStyle = glassGrad;
+                        ctx.fillRect(item.x, item.y, item.w, item.h);
+                        
+                        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeRect(item.x - 2, item.y - 2, item.w + 4, item.h + 4);
+                    }
+                }
+
+                ctx.restore();
+            });
+
+            if (paperStock === 0) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                ctx.font = 'bold 7.5px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText("ÉPUISÉ", layouts.paperReserve.x + layouts.paperReserve.w/2, layouts.paperReserve.y + 45);
+            }
+        }
+
+        // PRINT ENGINE JOB INITIALIZATION
+        function launchActiveJob() {
+            if (isPrinting || laminationActive) {
+                addTabletLog("Opération en cours !", false);
+                return;
+            }
+            if (printedDocumentReady) {
+                addTabletLog("Récupérez le document actuel avant d'en imprimer un nouveau !", false);
+                return;
+            }
+            if (paperStock <= 0) {
+                addTabletLog("Pas de papier ! Glissez-y du papier blanc.", false);
+                return;
+            }
+
+            const req = activeOrder.inkCosts;
+            if (ink.C < req.C || ink.M < req.M || ink.Y < req.Y || ink.K < req.K) {
+                addTabletLog("Niveaux d'encre insuffisants !", false);
+                return;
+            }
+
+            paperStock--;
+            ink.C -= req.C;
+            ink.M -= req.M;
+            ink.Y -= req.Y;
+            ink.K -= req.K;
+
+            isPrinting = true;
+            printProgress = 0;
+            
+            document.getElementById('printerStateBadge').innerText = "Impression";
+            document.getElementById('printerStateBadge').className = "px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/25 uppercase tracking-widest animate-pulse";
+
+            addTabletLog(`Impression en cours : ${activeOrder.docName}.`);
+            playSound('feed');
+            
+            animateJobProgress();
+        }
+
+        function animateJobProgress() {
+            if (!isPrinting) return;
+
+            let speedMultiplier = 0.08 * upgrades.speedLevel;
+            printProgress += speedMultiplier;
+
+            let sweepFactor = Math.min(30, 8 + upgrades.speedLevel * 0.8);
+            carriageX += sweepFactor * carriageDir;
+            if (carriageX > 430) {
+                carriageX = 430;
+                carriageDir = -1;
+                playSound('carriage');
+            } else if (carriageX < 250) {
+                carriageX = 250;
+                carriageDir = 1;
+                playSound('carriage');
+            }
+
+            drawDesk();
+
+            if (printProgress >= 100) {
+                printProgress = 100;
+                isPrinting = false;
+                printedDocumentReady = true;
+
+                document.getElementById('printerStateBadge').innerText = "Prêt";
+                document.getElementById('printerStateBadge').className = "px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 uppercase tracking-widest";
+
+                addTabletLog("Impression terminée !", true);
+                stats.pagesPrinted++;
+
+                draggables.push({
+                    type: 'printed_document',
+                    docType: activeOrder.docType,
+                    isLaminated: false,
+                    isStapled: false,
+                    x: layouts.printOutputSlot.x,
+                    y: layouts.printOutputSlot.y,
+                    w: 230,
+                    h: 110,
+                    homeX: layouts.printOutputSlot.x,
+                    homeY: layouts.printOutputSlot.y,
+                    isDragging: false
+                });
+
+                syncMoneyAndStats();
+                drawDesk();
+            } else {
+                requestAnimationFrame(animateJobProgress);
+            }
+        }
+
+        // CONSTANT BACKGROUND TICK ENGINE (Runs every 100ms)
+        setInterval(() => {
+            // Process unlocked interns autonomous printing cycles!
+            // Each unlocked intern works independently, consuming their own funds/materials, generating direct passive player wealth!
+            interns.forEach(int => {
+                if (int.unlocked) {
+                    if (int.progress < 100) {
+                        int.progress += int.speed;
+                        int.state = "Impression";
+                    } else {
+                        // Finished printing cycle!
+                        int.progress = 0;
+                        int.state = "Cycle terminé";
+                        
+                        // Give rewards directly to player balance!
+                        let prestigeMult = 1.0 + (prestigeLevel * 0.5);
+                        let finalPassEarnings = int.reward * prestigeMult;
+                        
+                        money += finalPassEarnings;
+                        stats.totalEarnings += finalPassEarnings;
+                        
+                        addTabletLog(`[STAGIAIRE ${int.name.toUpperCase()}] Tâche autonome achevée : +$${finalPassEarnings.toFixed(2)}`, true);
+                        playSound('kaching');
+                        
+                        syncMoneyAndStats();
+                    }
+                }
+            });
+
+            // Process automated courier and refiller systems
+            if (automation.courier && printedDocumentReady && !isPrinting && !laminationActive) {
+                const doc = draggables.find(d => d.type === 'printed_document');
+                if (doc) {
+                    let mismatch = false;
+                    if (activeOrder.demandsLaminate && !doc.isLaminated) mismatch = true;
+                    if (activeOrder.demandsStaple && !doc.isStapled) mismatch = true;
+
+                    if (!mismatch) {
+                        let reward = activeOrder.calculatedReward;
+                        money += reward;
+                        stats.totalEarnings += reward;
+                        
+                        addTabletLog(`[LIVREUR AUTOMATIQUE] Livraison réussie pour ${activeOrder.name} ! +$${reward.toFixed(2)}`, true);
+                        playSound('kaching');
+                        
+                        printedDocumentReady = false;
+                        draggables = draggables.filter(d => d.type !== 'printed_document');
+                        changeActiveOrder();
+                        saveToLocalStorage();
+                        syncMoneyAndStats();
+                    }
+                }
+            }
+
+            if (automation.refiller) {
+                let maxCap = getInkMax();
+                ['C', 'M', 'Y', 'K'].forEach(col => {
+                    let isLocked = (col === 'C' && !upgrades.colorsUnlocked.C) ||
+                                   (col === 'M' && !upgrades.colorsUnlocked.M) ||
+                                   (col === 'Y' && !upgrades.colorsUnlocked.Y);
+
+                    if (!isLocked && ink[col] <= 0) {
+                        if (money >= 10) {
+                            money -= 10;
+                            ink[col] = maxCap;
+                            stats.timesRefilled++;
+                            addTabletLog(`[POMPE AUTOMATIQUE] Remplissage automatique [${col}] accompli (-$10.00).`, true);
+                            playSound('click');
+                            syncMoneyAndStats();
+                        }
+                    }
+                });
+            }
+
+            // Always redraw to keep animations smooth
+            drawDesk();
+
+        }, 100);
+
+        // SAVE & RESTORE CONTROLLERS
+        function saveToLocalStorage() {
+            const data = {
+                signature: "REALISTIC_PRINTER_SAVE",
+                money: money,
+                paperStock: paperStock,
+                ink: ink,
+                isFirstCartridgeFree: isFirstCartridgeFree,
+                upgrades: upgrades,
+                equipment: equipment,
+                automation: automation,
+                interns: interns, // NEW: Include interns activation levels
+                stats: stats,
+                prestigeLevel: prestigeLevel
+            };
+            localStorage.setItem("realistic_printer_save_long", JSON.stringify(data));
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem("realistic_printer_save_long");
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (data.signature === "REALISTIC_PRINTER_SAVE") {
+                    restoreState(data);
+                    return true;
+                }
+            } catch (e) {
+                console.error("Local Load failed", e);
+            }
+            return false;
+        }
+
+        function restoreState(data) {
+            money = parseFloat(data.money) || 0.00;
+            paperStock = parseInt(data.paperStock) || 0;
+            ink = data.ink || { C: 0, M: 0, Y: 0, K: 0 };
+            isFirstCartridgeFree = data.isFirstCartridgeFree !== undefined ? data.isFirstCartridgeFree : true;
+            
+            upgrades = data.upgrades || upgrades;
+            equipment = data.equipment || equipment;
+            automation = data.automation || automation;
+            interns = data.interns || interns; // Restore interns
+            stats = data.stats || stats;
+            prestigeLevel = parseInt(data.prestigeLevel) || 0;
+
+            syncMoneyAndStats();
+            createDraggableSheets();
+            createDraggableCartridges();
+            updateUpgradeShopUI();
+            updateAutomationShopUI();
+            changeActiveOrder();
+            drawDesk();
+        }
+
+        function createNewSaveFile() {
+            document.getElementById('saveModal').classList.add('hidden');
+            addTabletLog("Initialisation d'une nouvelle partie longue.", true);
+            
+            if (loadFromLocalStorage()) {
+                addTabletLog("Restauration de la session automatique du navigateur réussie !", true);
+            } else {
+                exportSaveFile();
+            }
+        }
+
+        function exportSaveFile() {
+            const saveData = {
+                signature: "REALISTIC_PRINTER_SAVE",
+                money: money,
+                paperStock: paperStock,
+                ink: ink,
+                isFirstCartridgeFree: isFirstCartridgeFree,
+                upgrades: upgrades,
+                equipment: equipment,
+                automation: automation,
+                interns: interns,
+                stats: stats,
+                prestigeLevel: prestigeLevel
+            };
+            const jsonString = JSON.stringify(saveData, null, 4);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = "sauvegarde réaliste printer.json";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            addTabletLog("Fichier de sauvegarde exporté !", true);
+            playSound('kaching');
+        }
+
+        function handleFileImport(event, isFromModal) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.signature !== "REALISTIC_PRINTER_SAVE") {
+                        throw new Error("Invalid signature");
+                    }
+                    
+                    restoreState(data);
+
+                    if (isFromModal) {
+                        document.getElementById('saveModal').classList.add('hidden');
+                    }
+                    
+                    addTabletLog("Import de fichier de sauvegarde réussi !", true);
+                    playSound('upgrade');
+
+                } catch (err) {
+                    const errMsg = "Échec : Fichier incompatible ou corrompu.";
+                    addTabletLog(`Erreur : ${errMsg}`, false);
+                    if (isFromModal) {
+                        const errDiv = document.getElementById('modalErrorText');
+                        errDiv.innerText = errMsg;
+                        errDiv.classList.remove('hidden');
+                    }
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // FULLSCREEN MODES & LISTENERS
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mouseleave', handleEnd);
+
+        canvas.addEventListener('touchstart', handleStart);
+        canvas.addEventListener('touchmove', handleMove);
+        canvas.addEventListener('touchend', handleEnd);
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    updateFullscreenUI(true);
+                }).catch(err => {
+                    addTabletLog("Mode Plein Écran bloqué: " + err.message, false);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    updateFullscreenUI(false);
+                });
+            }
+            playSound('click');
+        }
+
+        function updateFullscreenUI(isFull) {
+            const icon = document.getElementById('fullscreenIcon');
+            const text = document.getElementById('fullscreenText');
+            if (isFull) {
+                icon.innerText = "❌";
+                text.innerText = "RETOUR F11";
+            } else {
+                icon.innerText = "🖥️";
+                text.innerText = "PLEIN ÉCRAN (F11)";
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            updateFullscreenUI(!!document.fullscreenElement);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+        });
+
+        window.onload = function() {
+            initCanvasSize();
+            createDraggableSheets();
+            createDraggableCartridges();
+            changeActiveOrder();
+            drawDesk();
+
+            if (localStorage.getItem("realistic_printer_save_long")) {
+                loadFromLocalStorage();
+                document.getElementById('saveModal').classList.add('hidden');
+                addTabletLog("Restauration de la session automatique.", true);
+            }
+        };
+
+        window.addEventListener('resize', () => {
+            drawDesk();
+        });
+    </script>
+</body>
+</html>
