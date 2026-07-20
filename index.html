@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Printer Game — a small printer game and chill</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Printer Game</h1>
+    <p class="tag">a small printer game and chill</p>
+  </header>
+
+  <main>
+    <section class="game">
+      <div class="printer" aria-hidden="true">
+        <div class="paper-slot"></div>
+        <div class="paper" id="paper"></div>
+        <div class="tray" id="tray">Paper: <span id="paperCount">20</span></div>
+      </div>
+
+      <div class="controls">
+        <button id="printBtn">Print</button>
+        <button id="refillBtn">Refill</button>
+      </div>
+
+      <div class="stats">
+        <div>Printed: <span id="printed">0</span></div>
+        <div>Best: <span id="best">0</span></div>
+      </div>
+
+      <p class="instructions">Click Print to produce a page. If you run out of paper, hit Refill. Your best score is saved in your browser.</p>
+    </section>
+
+    <footer>
+      <p>Open <a href="https://github.com/fefenourde-droid/printergame">repository</a> on GitHub. To run locally: open index.html in your browser.</p>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
